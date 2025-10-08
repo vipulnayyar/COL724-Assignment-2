@@ -54,11 +54,13 @@ class FCFSScheduler : public Scheduler{
 
         cout<<"Listen status = "<<listen_status <<endl;
 
+        int addrlen = sizeof(socket_address);
+        int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
+       
         while(1){
 
             cout<<"Listening"<<endl;
-            int addrlen = sizeof(socket_address);
-            int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
+            
 
             char msg_buffer[1000] = {0};
             auto bytesRead = read(conn, msg_buffer, 1000);

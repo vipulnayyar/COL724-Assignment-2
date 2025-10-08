@@ -84,19 +84,35 @@ int main(int argc, char** argv){
     socket_address.sin_addr.s_addr = inet_addr(SERVER_IP.c_str());
     socket_address.sin_port = htons(SERVER_PORT);
 
-    connect(client_socket, (struct sockaddr*)&socket_address,
-            sizeof(socket_address));
+
+    string mode = "sending";
+
+    while(1){
+    
+            connect(client_socket, (struct sockaddr*)&socket_address,
+                    sizeof(socket_address));
+
+            
+            Request req;
+
+            string json_msg = req.convert_to_json();
+
+            cout<< endl<<"Sending"<<json_msg<<endl;
+
+            send(client_socket, json_msg.c_str(), json_msg.size(), 0);
+            
+      
+            
+
+            char msg_buffer[1000] = {0};
+            auto bytesRead = read(client_socket, msg_buffer, 1000);
+            cout << "The message received from server : " << msg_buffer<<endl;
+
+         
 
 
-    Request req;
-
-    string json_msg = req.convert_to_json();
-
-    cout<< endl<<"Sending"<<json_msg<<endl;
-
-    send(client_socket, json_msg.c_str(), json_msg.size(), 0);
-
-    close(client_socket);
+    }
+    //close(client_socket);
 
 
     return 0;
