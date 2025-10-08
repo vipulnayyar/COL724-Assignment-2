@@ -41,15 +41,19 @@ int load_config(string conf_file){
 
     assert(doc.HasMember("server_ip"));
     assert(doc["server_ip"].IsString());
+    SERVER_IP = doc["server_ip"].GetString();
 
     assert(doc.HasMember("server_port"));
     assert(doc["server_port"].IsInt());
+    SERVER_PORT = doc["server_port"].GetInt();
 
     assert(doc.HasMember("server_threads"));
     assert(doc["server_threads"].IsInt());
+    SERVER_THREADS = doc["server_threads"].GetInt();
     
     assert(doc.HasMember("client_threads"));
     assert(doc["client_threads"].IsInt());
+    CLIENT_THREADS = doc["client_threads"].GetInt();
 
     return 0;
 }

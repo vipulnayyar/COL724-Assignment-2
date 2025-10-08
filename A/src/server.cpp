@@ -5,34 +5,18 @@
 
 #include <string>
 using namespace std;
-#include "conf.hpp"
+#include "conf.cpp"
+
+#include "scheduler.cpp"
+#include "request.cpp"
 
 
 class Worker{
-
-
-    
-};
-
-class Scheduler{
-
-
-};
-
-class Server{
     public:
+    
 
-        Server(string sched_policy){
-
-        }
-
-        void server_loop(){
-
-            while(1){
-                ;
-            }
-        }
 };
+
 
 
 int main(int argc, char** argv){
@@ -71,10 +55,6 @@ int main(int argc, char** argv){
     app.add_option("--server-threads", cmd_server_threads, "(OPTIONAL) Number of worker threads the server creates(overrides value from config file)")
         ->check(CLI::Range(1, std::numeric_limits<int>::max()));
 
-    int cmd_client_threads;
-    app.add_option("--client-threads", cmd_client_threads, "(OPTIONAL) Number of concurrent client instances(overrides value from config file)")
-        ->check(CLI::Range(1, std::numeric_limits<int>::max()));
-
 
     try{
         CLI11_PARSE(app, argc, argv);
@@ -100,9 +80,51 @@ int main(int argc, char** argv){
         SERVER_THREADS = cmd_server_threads;
     }
 
-    if (app.get_option("--client-threads")->count() != 0 ){
-        SERVER_THREADS = cmd_client_threads;
+
+    cout<<endl<<"SERVER CONFIG : "<<endl;
+    cout<<"SERVER_IP : "<< SERVER_IP<<endl;
+    cout<<"SERVER_PORT : "<<SERVER_PORT<<endl;
+    cout<<"SERVER_THREADS : "<<SERVER_THREADS<<endl;
+    cout<<"CLIENT_THREADS : "<<CLIENT_THREADS<<endl;
+
+    cout<<"config_file : "<<config_file<<endl;
+    cout<<"sched_policy : "<<sched_policy<<endl;
+    cout<<"file_store_dir : "<<file_store_dir<<endl;
+    cout<<"packet_size : "<<packet_size<<endl;
+    cout<<"rr_quantum : "<<rr_quantum<<endl;
+   
+    
+    if(sched_policy == "sjf"){
+
+        cout<<endl <<"Starting SJF Scheduler";
+        SJFScheduler scheduler = SJFScheduler(SERVER_THREADS, packet_size);
+
+        scheduler.server_loop();
+
+    }else if(sched_policy == "rr"){
+
+        cout<<endl <<"Starting RR Scheduler";
+
+        RRScheduler scheduler = RRScheduler(SERVER_THREADS, packet_size, rr_quantum);
+
+        scheduler.server_loop();
+
     }
+
+        cout<<endl <<"Starting FCFS Scheduler";
+
+        FCFSScheduler scheduler = FCFSScheduler(SERVER_THREADS, packet_size);
+
+        scheduler.server_loop(SERVER_IP, SERVER_PORT);
+
+    
+
+
+
+
+    
+
+    cout<<endl<<"Exiting Server application";
 
 
     return 0;
