@@ -7,8 +7,9 @@
 using namespace std;
 #include "conf.cpp"
 
-#include "scheduler.cpp"
 #include "request.cpp"
+
+#include "scheduler.cpp"
 
 
 class Worker{
@@ -109,14 +110,14 @@ int main(int argc, char** argv){
 
         scheduler.server_loop();
 
-    }
+    }else{
 
-        cout<<endl <<"Starting FCFS Scheduler";
+        cout <<"Starting FCFS Scheduler"<<endl;
 
         FCFSScheduler scheduler = FCFSScheduler(SERVER_THREADS, packet_size);
 
         scheduler.server_loop(SERVER_IP, SERVER_PORT);
-
+    }
     
 
 

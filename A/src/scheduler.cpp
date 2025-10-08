@@ -1,8 +1,8 @@
 
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 
 
 class Scheduler{
@@ -27,11 +27,11 @@ class FCFSScheduler : public Scheduler{
 
     void server_loop(string server_addr, int port){
 
-        cout<<"Starting Server on "<<server_addr << " at port "<< port;
+        cout<<"Starting Server on "<<server_addr << " at port "<< port<<endl;
         int server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
         if(server_socket <= 0){
-            cerr << "Socket Creation Failed";
+            cerr << "Socket Creation Failed"<<endl;
             exit(1);
         }
 
@@ -40,20 +40,37 @@ class FCFSScheduler : public Scheduler{
         socket_address.sin_addr.s_addr = inet_addr(server_addr.c_str());
         socket_address.sin_port = htons(port);
 
+        int opt = 1;
+        if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+            cerr << "setsockopt Failed " << endl;
+            return;
+        }
 
-        bind(server_socket, (struct sockaddr*)&socket_address, sizeof(sockaddr));
+        int bind_status = ::bind(server_socket, (struct sockaddr*)&socket_address, sizeof(sockaddr));
 
-        listen(server_socket, 100);
+        cout<<"Bind status = "<<bind_status <<endl;
 
+        int listen_status = listen(server_socket, 10);
+
+        cout<<"Listen status = "<<listen_status <<endl;
 
         while(1){
 
+            cout<<"Listening"<<endl;
             int addrlen = sizeof(socket_address);
             int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
 
-            char msg_buffer[1000];
+            char msg_buffer[1000] = {0};
             auto bytesRead = read(conn, msg_buffer, 1000);
-            std::cout << "The message was: " << msg_buffer;
+            cout << "The message was: " << msg_buffer<<endl;
+
+            Request req;
+            req.convert_from_json(msg_buffer);
+            cout<<req.convert_to_json()<<endl;
+
+            string response = "Good talking to you\n";
+            send(conn, response.c_str(), response.size(), 0);
+
   
         }
     }

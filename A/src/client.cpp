@@ -7,9 +7,11 @@
 using namespace std;
 #include "conf.cpp"
 
-#include "scheduler.cpp"
 #include "request.cpp"
-
+#include <netinet/in.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
 class Worker{
     public:
@@ -86,9 +88,9 @@ int main(int argc, char** argv){
             sizeof(socket_address));
 
 
-    Request r(1, "write");
+    Request req;
 
-    string json_msg = r.convert_to_json();
+    string json_msg = req.convert_to_json();
 
     cout<< endl<<"Sending"<<json_msg<<endl;
 

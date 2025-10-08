@@ -21,8 +21,11 @@ class Request{
 
     string write_data = "";
 
-    Request(int id, string type){
+    void set_req_id(int id){
         req_id = id;
+    }
+
+     void set_req_type(string type){
         req_type = type;
     }
 
