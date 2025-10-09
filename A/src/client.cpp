@@ -85,8 +85,6 @@ int main(int argc, char** argv){
     socket_address.sin_port = htons(SERVER_PORT);
 
 
-    string mode = "sending";
-
     while(1){
     
             connect(client_socket, (struct sockaddr*)&socket_address,
@@ -95,9 +93,11 @@ int main(int argc, char** argv){
             
             RequestResponse req;
             req.req_id = 1;
-            req.req_type = "write";
+            req.req_type = "read";
             req.file_path ="/tmp/test";
-            req.write_data = "test12\n3";
+            req.read_line_index = 1;
+            req.read_num_lines = 1;
+            //req.write_data = "test12\n3";
 
             string json_msg = req.convert_to_json();
 

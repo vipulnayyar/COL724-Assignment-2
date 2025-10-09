@@ -57,7 +57,7 @@ class FCFSScheduler : public Scheduler{
         int addrlen = sizeof(socket_address);
         int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
 
-        ServerWorker server_worker;
+        ServerWorker server_worker(packet_size);
        
         while(1){
 
@@ -72,13 +72,9 @@ class FCFSScheduler : public Scheduler{
             req.convert_from_json(msg_buffer);
             cout<<req.convert_to_json()<<endl;
 
-            vector<RequestResponse> responses = server_worker.process_req(req);
+            server_worker.process_req(conn, req);
 
-            for (RequestResponse response : responses) { 
-       
-                string response_message = response.convert_to_json();
-                send(conn, response_message.c_str(), response_message.size(), 0);
-            }
+            
   
         }
     }

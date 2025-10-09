@@ -20,16 +20,16 @@ class RequestResponse{
 
     int read_line_index = -1;
     int read_num_lines = -1;
-    vector<string> read_data;
+    string read_data;
 
     string file_path = "";
     string write_data = "";
 
     bool req_status = false;
 
-     void append_line_data(string line){
+    /* void append_line_data(string line){
         read_data.push_back(line);
-    }
+    } */
 
 
     void convert_from_json(const string& json_str){
@@ -54,12 +54,8 @@ class RequestResponse{
 
 
         if (doc.HasMember("req_status")) req_status = doc["req_status"].GetBool();
-         if (doc.HasMember("read_data") && doc["read_data"].IsArray()) {
-            read_data.clear();
-            for (auto& v : doc["read_data"].GetArray()) {
-                read_data.push_back(v.GetString());
-            }
-        }
+
+        if (doc.HasMember("read_data")) read_data = doc["read_data"].GetString();
 
     }
 
@@ -84,11 +80,12 @@ class RequestResponse{
         doc.AddMember("file_path", Value(file_path.c_str(), allocator), allocator);
 
 
-        Value arr(kArrayType);
+        doc.AddMember("read_data", Value(read_data.c_str(), allocator), allocator);
+        /* Value arr(kArrayType);
         for (const auto& s : read_data) {
             arr.PushBack(Value(s.c_str(), allocator), allocator);
         }
-        doc.AddMember("read_data", arr, allocator);
+        doc.AddMember("read_data", arr, allocator); */
 
 
         StringBuffer buffer;

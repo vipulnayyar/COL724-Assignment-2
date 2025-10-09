@@ -1,63 +1,73 @@
 
 #include <fstream>
 #include "requestresponse.cpp"
+#include "file-io.cpp"
+
 class ServerWorker{
 
     public:
 
     int connection;
     RequestResponse request;
+    int packet_size;
 
 
-    ServerWorker(){
-
+    ServerWorker(int p){
+        packet_size = p;
 
     }
 
-    vector<RequestResponse> process_req( RequestResponse req){
+    void process_req( int conn, RequestResponse req){
 
-       // connection = conn;
+        connection = conn;
         request = req;
 
         if(request.req_type == "read"){
-            return read();
+            read();
         }
         else if(request.req_type=="write"){
 
-            return write();
+            write();
         }
 
     }
 
-    vector<RequestResponse> read(){
+    void read(){
+
+        vector<RequestResponse> responses;
+
+
+
+        for(int line = 1; line <= request.read_num_lines; line += packet_size ){
+
+        
+            string data = read_file(request.file_path, request.read_line_index, packet_size);
+        
+            request.req_status = true;
+            request.read_data = data;
+
+
+            string response_message = request.convert_to_json();
+            send(connection, response_message.c_str(), response_message.size(), 0);
+
+        }
 
         
     }
 
-    vector<RequestResponse> write(){
+    void write(){
 
-        ofstream outputFile(request.file_path);
-
-        if (outputFile.is_open()) {
-            outputFile << request.write_data;
-
-            outputFile << endl;
-
-            outputFile.close();
-            cout << "Data written to " << request.file_path << endl;
-        } else {
-            cerr << "Unable to open file " << request.file_path << endl;
-        }
-
-
+        
+        write_file(request.file_path, request.write_data);
 
         request.write_data = "";
         request.req_status = true;
 
-        vector<RequestResponse> responses;
-        responses.push_back(request);
 
-        return responses;
+        string response_message = request.convert_to_json();
+        send(connection, response_message.c_str(), response_message.size(), 0);
+
+        
 
 
 
