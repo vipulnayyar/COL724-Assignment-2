@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-
+#include "server-worker.cpp"
 
 class Scheduler{
     public:
@@ -56,6 +56,8 @@ class FCFSScheduler : public Scheduler{
 
         int addrlen = sizeof(socket_address);
         int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
+
+        ServerWorker server_worker;
        
         while(1){
 
@@ -66,13 +68,17 @@ class FCFSScheduler : public Scheduler{
             auto bytesRead = read(conn, msg_buffer, 1000);
             cout << "The message was: " << msg_buffer<<endl;
 
-            Request req;
+            RequestResponse req;
             req.convert_from_json(msg_buffer);
             cout<<req.convert_to_json()<<endl;
 
-            string response = "Good talking to you\n";
-            send(conn, response.c_str(), response.size(), 0);
+            vector<RequestResponse> responses = server_worker.process_req(req);
 
+            for (RequestResponse response : responses) { 
+       
+                string response_message = response.convert_to_json();
+                send(conn, response_message.c_str(), response_message.size(), 0);
+            }
   
         }
     }

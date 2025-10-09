@@ -7,7 +7,6 @@
 using namespace std;
 #include "conf.cpp"
 
-#include "request.cpp"
 
 #include "scheduler.cpp"
 

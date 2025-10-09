@@ -7,7 +7,7 @@
 using namespace std;
 #include "conf.cpp"
 
-#include "request.cpp"
+#include "requestresponse.cpp"
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -93,7 +93,11 @@ int main(int argc, char** argv){
                     sizeof(socket_address));
 
             
-            Request req;
+            RequestResponse req;
+            req.req_id = 1;
+            req.req_type = "write";
+            req.file_path ="/tmp/test";
+            req.write_data = "test12\n3";
 
             string json_msg = req.convert_to_json();
 
@@ -102,7 +106,6 @@ int main(int argc, char** argv){
             send(client_socket, json_msg.c_str(), json_msg.size(), 0);
             
       
-            
 
             char msg_buffer[1000] = {0};
             auto bytesRead = read(client_socket, msg_buffer, 1000);

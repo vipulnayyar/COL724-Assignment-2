@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 using namespace std;
 
 #include "rapidjson/document.h"
@@ -6,7 +7,7 @@ using namespace std;
 #include "rapidjson/stringbuffer.h"
 
 // Combined Request format for Read and Writes
-class Request{
+class RequestResponse{
 
     public:
 
@@ -18,26 +19,18 @@ class Request{
     int completion_time = 0;
 
     int read_line_index = -1;
+    int read_num_lines = -1;
+    vector<string> read_data;
 
+    string file_path = "";
     string write_data = "";
 
-    void set_req_id(int id){
-        req_id = id;
+    bool req_status = false;
+
+     void append_line_data(string line){
+        read_data.push_back(line);
     }
 
-     void set_req_type(string type){
-        req_type = type;
-    }
-
-
-    void set_read_line_index(int read_index){
-        read_line_index = read_index;
-    }
-
-
-    void set_write_data(string data){
-        write_data = data;
-    }
 
     void convert_from_json(const string& json_str){
 
@@ -54,8 +47,19 @@ class Request{
         if (doc.HasMember("service_start_time")) service_start_time = doc["service_start_time"].GetInt();
         if (doc.HasMember("completion_time")) completion_time = doc["completion_time"].GetInt();
         if (doc.HasMember("read_line_index")) read_line_index = doc["read_line_index"].GetInt();
-        if (doc.HasMember("write_data")) write_data = doc["write_data"].GetString();
+        if (doc.HasMember("read_num_lines")) read_num_lines = doc["read_num_lines"].GetInt();
 
+        if (doc.HasMember("write_data")) write_data = doc["write_data"].GetString();
+        if (doc.HasMember("file_path")) file_path = doc["file_path"].GetString();
+
+
+        if (doc.HasMember("req_status")) req_status = doc["req_status"].GetBool();
+         if (doc.HasMember("read_data") && doc["read_data"].IsArray()) {
+            read_data.clear();
+            for (auto& v : doc["read_data"].GetArray()) {
+                read_data.push_back(v.GetString());
+            }
+        }
 
     }
 
@@ -72,7 +76,19 @@ class Request{
         doc.AddMember("service_start_time", service_start_time, allocator);
         doc.AddMember("completion_time", completion_time, allocator);
         doc.AddMember("read_line_index", read_line_index, allocator);
+        doc.AddMember("read_num_lines", read_num_lines, allocator);
+        doc.AddMember("req_status", req_status, allocator);
+
+
         doc.AddMember("write_data", Value(write_data.c_str(), allocator), allocator);
+        doc.AddMember("file_path", Value(file_path.c_str(), allocator), allocator);
+
+
+        Value arr(kArrayType);
+        for (const auto& s : read_data) {
+            arr.PushBack(Value(s.c_str(), allocator), allocator);
+        }
+        doc.AddMember("read_data", arr, allocator);
 
 
         StringBuffer buffer;
