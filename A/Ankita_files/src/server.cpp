@@ -9,21 +9,26 @@
 #include <atomic>
 #include <netinet/in.h>
 #include <unistd.h>
-#include "CLI/CLI.hpp"
+#include <arpa/inet.h> 
 
+#include "CLI/CLI.hpp"
 using namespace std;
 
 #include "conf.cpp"
 #include "requestresponse.h"
 #include "server-worker.cpp"
 
-// ------------------------ Global Queue and Sync Primitives ------------------------
+// -----------------------------------------------------------------------------
+// Global Queue & Synchronization
+// -----------------------------------------------------------------------------
 queue<pair<int, RequestResponse>> request_queue;
 mutex queue_mutex;
 condition_variable queue_cv;
 atomic<bool> server_running(true);
 
-// ------------------------ FCFS Scheduler Class ------------------------
+// -----------------------------------------------------------------------------
+// FCFS Scheduler
+// -----------------------------------------------------------------------------
 class FCFSScheduler {
     int server_socket;
     int server_threads;
@@ -31,44 +36,46 @@ class FCFSScheduler {
     vector<thread> worker_threads;
 
 public:
-    FCFSScheduler(int threads, int p) {
-        server_threads = threads;
-        packet_size = p;
-    }
+    FCFSScheduler(int threads, int p)
+        : server_threads(threads), packet_size(p) {}
 
-    // Worker function (thread pool)
+    // Worker function: processes requests in FCFS order
     void worker_loop() {
         ServerWorker worker(packet_size);
+
         while (server_running) {
             unique_lock<mutex> lock(queue_mutex);
             queue_cv.wait(lock, [] { return !request_queue.empty() || !server_running; });
-            if (!server_running) break;
+
+            if (!server_running && request_queue.empty()) break;
 
             auto [conn, req] = request_queue.front();
             request_queue.pop();
             lock.unlock();
 
-            // Timestamp: start
-            auto start_time = chrono::steady_clock::now();
+            // ---------------- Timestamp: start ----------------
+            req.service_start_time = chrono::duration_cast<chrono::milliseconds>(
+                chrono::steady_clock::now().time_since_epoch()).count();
 
             worker.process_req(conn, req);
 
-            // Timestamp: finish
-            auto finish_time = chrono::steady_clock::now();
+            // ---------------- Timestamp: finish ----------------
+            req.completion_time = chrono::duration_cast<chrono::milliseconds>(
+                chrono::steady_clock::now().time_since_epoch()).count();
 
-            double response_time = chrono::duration<double>(finish_time - start_time).count();
-            cout << "[INFO] Request processed | Response Time: " << response_time << " s" << endl;
+            double response_time = (req.completion_time - req.arrival_time) / 1000.0;
+            cout << "[INFO] Processed ReqID=" << req.req_id
+                 << " | Response Time=" << response_time << " s" << endl;
 
             close(conn);
         }
     }
 
-    // Start the TCP server and accept incoming clients
+    // TCP server accept loop
     void server_loop(string server_ip, int server_port) {
-        // Create socket
         server_socket = socket(AF_INET, SOCK_STREAM, 0);
         if (server_socket < 0) {
-            cerr << "Socket creation failed!" << endl;
+            cerr << "[ERROR] Socket creation failed!" << endl;
             exit(1);
         }
 
@@ -77,15 +84,18 @@ public:
         server_addr.sin_addr.s_addr = inet_addr(server_ip.c_str());
         server_addr.sin_port = htons(server_port);
 
-        // Bind
+        int opt = 1;
+        setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
         if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-            cerr << "Bind failed!" << endl;
+            cerr << "[ERROR] Bind failed!" << endl;
+            close(server_socket);
             exit(1);
         }
 
-        // Listen
         if (listen(server_socket, 10) < 0) {
-            cerr << "Listen failed!" << endl;
+            cerr << "[ERROR] Listen failed!" << endl;
+            close(server_socket);
             exit(1);
         }
 
@@ -96,34 +106,46 @@ public:
             worker_threads.emplace_back(&FCFSScheduler::worker_loop, this);
         }
 
-        // Accept loop
+        // Accept connections
         while (server_running) {
             sockaddr_in client_addr{};
             socklen_t client_len = sizeof(client_addr);
             int conn = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
             if (conn < 0) {
-                cerr << "Accept failed!" << endl;
+                cerr << "[WARN] Accept failed!" << endl;
                 continue;
             }
 
-            // Read request
-            char buffer[4096];
-            int bytes = recv(conn, buffer, sizeof(buffer), 0);
+            // Read request JSON
+            char buffer[8192];
+            int bytes = recv(conn, buffer, sizeof(buffer) - 1, 0);
             if (bytes <= 0) {
+                cerr << "[WARN] Empty or failed recv()" << endl;
                 close(conn);
                 continue;
             }
 
-            string json_req(buffer, bytes);
+            buffer[bytes] = '\0';
+            string json_req(buffer);
+
             RequestResponse req;
-            req.parse_from_json(json_req);
+            try {
+                req.convert_from_json(json_req);
+            } catch (...) {
+                cerr << "[ERROR] Failed to parse JSON request." << endl;
+                close(conn);
+                continue;
+            }
 
-            // Timestamp: arrival
-            auto arrival_time = chrono::steady_clock::now();
-            cout << "[INFO] Request arrived at "
-                 << chrono::duration_cast<chrono::milliseconds>(arrival_time.time_since_epoch()).count()
-                 << " ms" << endl;
+            // ---------------- Timestamp: arrival ----------------
+            req.arrival_time = chrono::duration_cast<chrono::milliseconds>(
+                chrono::steady_clock::now().time_since_epoch()).count();
 
+            cout << "[INFO] Received request ID=" << req.req_id
+                 << " Type=" << req.req_type
+                 << " at t=" << req.arrival_time << " ms" << endl;
+
+            // Push to queue
             {
                 lock_guard<mutex> lock(queue_mutex);
                 request_queue.push({conn, req});
@@ -131,8 +153,8 @@ public:
             queue_cv.notify_one();
         }
 
-        // Cleanup
-        for (auto& t : worker_threads) {
+        // Graceful shutdown
+        for (auto &t : worker_threads) {
             if (t.joinable()) t.join();
         }
 
@@ -140,7 +162,9 @@ public:
     }
 };
 
-// ------------------------ MAIN FUNCTION ------------------------
+// -----------------------------------------------------------------------------
+// MAIN FUNCTION
+// -----------------------------------------------------------------------------
 int main(int argc, char** argv) {
     CLI::App app{"Server Application"};
 
@@ -170,8 +194,9 @@ int main(int argc, char** argv) {
         return app.exit(err);
     }
 
+    // Load config.json
     if (load_config(config_file) != 0) {
-        cerr << "Config load failure\n";
+        cerr << "[ERROR] Config load failure" << endl;
         return -1;
     }
 
@@ -184,6 +209,7 @@ int main(int argc, char** argv) {
     cout << "File Store Dir  : " << file_store_dir << endl;
     cout << "Packet Size     : " << packet_size << endl;
 
+    // Policy selection
     if (sched_policy == "fcfs") {
         cout << "\nStarting FCFS Scheduler..." << endl;
         FCFSScheduler scheduler(SERVER_THREADS, packet_size);
@@ -193,7 +219,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    cout << "\nExiting Server application" << endl;
+    cout << "\n[INFO] Exiting Server application" << endl;
     return 0;
 }
 

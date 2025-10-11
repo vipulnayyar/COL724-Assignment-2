@@ -1,128 +1,203 @@
+// scheduler.cpp
+// Implements FCFS multithreaded scheduling with timestamps
+// Compile together with server.cpp, server-worker.cpp, requestresponse.cpp, file-io.cpp, conf.cpp
 
-#include <netinet/in.h>
-#include <unistd.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
-#include "server-worker.cpp"
+#include <unistd.h>
 
-class Scheduler{
-    public:
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstring>
+#include <deque>
+#include <iostream>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
+#include <signal.h>
 
-    
+#include "requestresponse.h"
+#include "server-worker.cpp"  // your ServerWorker
+#include "file-io.h"          // read_file/write_file functions
 
-};
+using namespace std;
+using namespace std::chrono;
 
+// --------------------------- Utility Functions ---------------------------
 
-class FCFSScheduler : public Scheduler{
-    public:
+static atomic<bool> g_running(true);
 
+void handle_sigint_fcfs(int) {
+    g_running.store(false);
+}
+
+// read until newline '\n' (client sends JSON followed by '\n')
+static string recv_json_line_full(int sock, int max_total = 10 * 1024 * 1024) {
+    string out;
+    char buf[4096];
+    while (true) {
+        ssize_t n = recv(sock, buf, sizeof(buf), 0);
+        if (n <= 0) {
+            if (out.empty()) return string(); // connection closed before data
+            else break;
+        }
+        out.append(buf, buf + n);
+        auto pos = out.find('\n');
+        if (pos != string::npos) {
+            out.resize(pos);
+            break;
+        }
+        if ((int)out.size() >= max_total) break; // safety
+    }
+    return out;
+}
+
+static long now_mono_ms() {
+    return (long)duration_cast<milliseconds>(
+        steady_clock::now().time_since_epoch()).count();
+}
+
+// --------------------------- FCFS Scheduler ------------------------------
+
+class FCFSScheduler {
+public:
     int worker_threads;
     int packet_size;
 
-    FCFSScheduler(int server_threads, int p){
-        worker_threads = server_threads;
-        packet_size = p;
+    FCFSScheduler(int server_threads, int p)
+        : worker_threads(server_threads), packet_size(p) {
+        signal(SIGINT, handle_sigint_fcfs);
     }
-    
 
-    void server_loop(string server_addr, int port){
+    void server_loop(const string &server_ip, int server_port) {
+        cout << "[FCFS] Starting server on " << server_ip << ":" << server_port << endl;
 
-        cout<<"Starting Server on "<<server_addr << " at port "<< port<<endl;
+        // ---------- Setup server socket ----------
         int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-        if(server_socket <= 0){
-            cerr << "Socket Creation Failed"<<endl;
+        if (server_socket < 0) {
+            cerr << "[FCFS] socket() failed\n";
             exit(1);
         }
 
-        sockaddr_in socket_address;
-        socket_address.sin_family = AF_INET;
-        socket_address.sin_addr.s_addr = inet_addr(server_addr.c_str());
-        socket_address.sin_port = htons(port);
-
         int opt = 1;
-        if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-            cerr << "setsockopt Failed " << endl;
-            return;
+        setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(server_port);
+        addr.sin_addr.s_addr = inet_addr(server_ip.c_str());
+
+        if (bind(server_socket, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            cerr << "[FCFS] bind() failed\n";
+            close(server_socket);
+            exit(1);
         }
 
-        int bind_status = ::bind(server_socket, (struct sockaddr*)&socket_address, sizeof(sockaddr));
+        if (listen(server_socket, 50) < 0) {
+            cerr << "[FCFS] listen() failed\n";
+            close(server_socket);
+            exit(1);
+        }
 
-        cout<<"Bind status = "<<bind_status <<endl;
+        cout << "[FCFS] Listening...\n";
 
-        int listen_status = listen(server_socket, 10);
+        // ---------- Shared request queue ----------
+        deque<pair<int, RequestResponse>> request_queue;
+        mutex queue_mtx;
+        condition_variable queue_cv;
 
-        cout<<"Listen status = "<<listen_status <<endl;
+        atomic<bool> accepting{true};
 
-        int addrlen = sizeof(socket_address);
-        int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
+        // ---------- Worker threads ----------
+        vector<thread> workers;
+        for (int i = 0; i < worker_threads; ++i) {
+            workers.emplace_back([&, i]() {
+                //ServerWorker worker(packet_size);
+                ServerWorker worker(packet_size, file_store_dir);
 
-        ServerWorker server_worker(packet_size);
-       
-        while(1){
+                while (g_running.load()) {
+                    pair<int, RequestResponse> job;
+                    {
+                        unique_lock<mutex> lock(queue_mtx);
+                        queue_cv.wait(lock, [&]() {
+                            return !request_queue.empty() || !g_running.load();
+                        });
+                        if (!g_running.load() && request_queue.empty()) return;
+                        job = request_queue.front();
+                        request_queue.pop_front();
+                    }
 
-            cout<<"Listening"<<endl;
-            
+                    RequestResponse req = job.second;
+                    int conn = job.first;
 
-            char msg_buffer[1000] = {0};
-            auto bytesRead = read(conn, msg_buffer, 1000);
-            cout << "The message was: " << msg_buffer<<endl;
+                    // Service start
+                    req.service_start_time = now_mono_ms();
+
+                    // Process request (handle read/write)
+                    worker.process_req(conn, req);
+
+                    // Completion
+                    req.completion_time = now_mono_ms();
+
+                    // Send back timing info (optional)
+                    try {
+                        RequestResponse timing_resp = req;
+                        timing_resp.req_status = true;
+                        string line = timing_resp.convert_to_json() + "\n";
+                        send(conn, line.c_str(), line.size(), 0);
+                    } catch (...) {}
+
+                    close(conn);
+                }
+            });
+        }
+
+        // ---------- Accept loop ----------
+        while (g_running.load()) {
+            sockaddr_in client_addr{};
+            socklen_t client_len = sizeof(client_addr);
+            int conn = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
+            if (conn < 0) {
+                if (!g_running.load()) break;
+                cerr << "[FCFS] accept() failed\n";
+                continue;
+            }
+
+            string json = recv_json_line_full(conn);
+            if (json.empty()) {
+                cerr << "[FCFS] Empty or invalid request, closing\n";
+                close(conn);
+                continue;
+            }
 
             RequestResponse req;
-            req.convert_from_json(msg_buffer);
-            cout<<req.convert_to_json()<<endl;
+            try {
+                req.convert_from_json(json);
+            } catch (...) {
+                cerr << "[FCFS] Failed to parse JSON, closing\n";
+                close(conn);
+                continue;
+            }
 
-            server_worker.process_req(conn, req);
+            req.arrival_time = now_mono_ms();
 
-            
-  
+            {
+                lock_guard<mutex> lock(queue_mtx);
+                request_queue.push_back({conn, req});
+            }
+            queue_cv.notify_one();
         }
+
+        // ---------- Shutdown ----------
+        g_running.store(false);
+        queue_cv.notify_all();
+        close(server_socket);
+
+        for (auto &t : workers) if (t.joinable()) t.join();
+        cout << "[FCFS] Server shutdown complete.\n";
     }
-
-    
-};
-
-class SJFScheduler : public Scheduler{
-    public:
-
-    int worker_threads;
-    int packet_size;
-
-    SJFScheduler(int server_threads, int p){
-        worker_threads = server_threads;
-        packet_size = p;
-    }
-
-    void server_loop(){
-
-        while(1){
-            
-        }
-    }
-
-    
-};
-
-class RRScheduler : public Scheduler{
-    public:
-
-    int worker_threads;
-    int packet_size;
-    int quantum_size;
-
-    RRScheduler(int server_threads, int p, int q ){
-        worker_threads = server_threads;
-        packet_size = p;
-        quantum_size = q;
-    }
-
-    void server_loop(){
-
-        while(1){
-            
-        }
-    }
-
-    
 };
 

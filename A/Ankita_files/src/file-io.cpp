@@ -1,65 +1,56 @@
-
-#include <string>
+#include <iostream>
 #include <fstream>
-#include <sstream>
+#include <string>
 using namespace std;
 
-string read_file(string filepath, int read_line_index, int num_lines_to_read){
-
+// Reads `num_lines_to_read` lines starting from `read_line_index` (1-based index)
+string read_file(string filepath, int read_line_index, int num_lines_to_read) {
     ifstream infile(filepath);
 
-    if(!infile.is_open()){
-        cerr << "Unable to open file for reading"<<filepath<<endl;
+    if (!infile.is_open()) {
+        cerr << "❌ Unable to open file for reading: " << filepath << endl;
+        return "";  // Return empty string if file not found
     }
 
-
-    cout<<"Reading file : "<<filepath<<endl;
+    cout << "📖 Reading file: " << filepath << endl;
 
     string line;
     int current_line = 0;
 
+    // Skip lines before read_line_index
     while (current_line < read_line_index - 1 && getline(infile, line)) {
         current_line++;
     }
 
-    string result = "";
+    string result;
     int lines_read = 0;
 
-
+    // Read specified number of lines
     while (lines_read < num_lines_to_read && getline(infile, line)) {
         result += line;
-    
-        if (lines_read < num_lines_to_read - 1) { 
+        if (lines_read < num_lines_to_read - 1)
             result += "\n";
-        }
-    
         lines_read++;
-
     }
-
 
     infile.close();
 
-    cout<<"Result of file reading : "<<result<<endl;
+    cout << "✅ Read " << lines_read << " lines from " << filepath << endl;
+    // Optional: cout << "Result: " << result << endl;
 
     return result;
-
 }
 
-
-void write_file(string filepath, string write_data){
-
+// Writes full `write_data` string into `filepath` (overwrites existing file)
+void write_file(string filepath, string write_data) {
     ofstream outfile(filepath);
 
     if (outfile.is_open()) {
         outfile << write_data;
-
         outfile.close();
-
-        cout << "Data written to " << filepath << endl;
+        cout << "✅ Data written to " << filepath << endl;
     } else {
-        cerr << "Unable to open file for writing" << filepath << endl;
+        cerr << "❌ Unable to open file for writing: " << filepath << endl;
     }
-
-
 }
+

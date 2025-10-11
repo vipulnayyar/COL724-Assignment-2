@@ -1,35 +1,25 @@
-#ifndef REQUESTRESPONSE_H
-#define REQUESTRESPONSE_H
-
+#pragma once
 #include <string>
-#include <vector>
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
+using namespace std;
 
 class RequestResponse {
 public:
     int req_id;
     std::string req_type;
-
-    int arrival_time;
-    int service_start_time;
-    int completion_time;
-
-    int read_line_index;
-    int read_num_lines;
-    std::string read_data;
-
     std::string file_path;
     std::string write_data;
-
+    std::string read_data;
     bool req_status;
+    int read_line_index;
+    int read_num_lines;
+    long arrival_time;
+    long service_start_time;
+    long completion_time;
 
-    RequestResponse();
-
-    // Deserialize JSON string into object fields
-    void convert_from_json(const std::string& json_str);
-
-    // Serialize object fields into JSON string
-    std::string convert_to_json();
+    std::string convert_to_json() const;
+    void convert_from_json(const std::string &json);
 };
-
-#endif // REQUESTRESPONSE_H
 
