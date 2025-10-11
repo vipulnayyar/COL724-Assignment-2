@@ -50,7 +50,10 @@ class ServerWorker{
 
 
             string response_message = request.convert_to_json();
+            cout<<"\n Sending server response to client : \n"<<response_message<<endl;
             send(connection, response_message.c_str(), response_message.size(), 0);
+
+            close(connection);
 
         }
 
