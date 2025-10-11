@@ -97,7 +97,7 @@ int main(int argc, char** argv){
     if(sched_policy == "sjf"){
 
         cout<<endl <<"Starting SJF Scheduler";
-        SJFScheduler scheduler = SJFScheduler(SERVER_THREADS, packet_size);
+        SJFScheduler scheduler = SJFScheduler(SERVER_THREADS, packet_size, 0);
 
         scheduler.server_loop(SERVER_IP, SERVER_PORT);
 
@@ -113,7 +113,7 @@ int main(int argc, char** argv){
 
         cout <<"Starting FCFS Scheduler"<<endl;
 
-        FCFSScheduler scheduler = FCFSScheduler(SERVER_THREADS, packet_size);
+        FCFSScheduler scheduler = FCFSScheduler(SERVER_THREADS, packet_size, 0);
 
         scheduler.server_loop(SERVER_IP, SERVER_PORT);
     }

@@ -29,6 +29,15 @@ class RequestResponse{
 
     bool req_status = false;
 
+    string read_packet_to_send = "";
+    streampos read_chkpt_position;
+    bool read_checkpoint_present = false;
+    int read_checkpoint_lines_read = 0;
+
+
+    bool write_checkpoint_present = false;
+    streampos write_chkpt_position;
+
     /* void append_line_data(string line){
         read_data.push_back(line);
     } */

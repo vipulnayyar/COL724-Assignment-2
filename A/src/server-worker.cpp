@@ -4,6 +4,7 @@
 #include "file-io.cpp"
 using namespace std::chrono;
 
+
 class ServerWorker{
 
     public:
@@ -12,7 +13,24 @@ class ServerWorker{
     RequestResponse request;
     int packet_size;
     int worker_id;
+    int quantum_size;
 
+    long long processing_start_time;
+
+
+    long long get_current_timestamp(){
+        auto timestamp_now = system_clock::now();               
+        auto timestamp_ms = duration_cast<milliseconds>(         
+            timestamp_now.time_since_epoch()
+        ).count();
+
+        return timestamp_ms;
+
+    }
+
+    long long get_duration(long long old_ts, long long new_ts ){
+        return (new_ts - old_ts);
+    }
 
     ServerWorker(int id, int p){
         worker_id = id;
@@ -20,22 +38,28 @@ class ServerWorker{
 
     }
 
-    void process_req( RequestResponse req){
+    RequestResponse process_req( RequestResponse req, int q_size){
 
         connection = req.conn;
         request = req;
+        quantum_size = q_size;
+
+        processing_start_time = get_current_timestamp();
 
         if(request.req_type == "read"){
-            read();
+            return read();
         }
         else if(request.req_type=="write"){
 
-            write();
+            return write();
         }
+
+        RequestResponse dummyreq;
+        return dummyreq;
 
     }
 
-    void read(){
+    RequestResponse read(){
 
         ifstream infile(request.file_path);
 
@@ -47,64 +71,89 @@ class ServerWorker{
         cout<<"Reading file : "<<request.file_path<<endl;
 
         string line;
-        string packet_to_send = "";
-        int line_count = 0;
+        //string packet_to_send = "";
+        //int line_count = 0;
 
+        if(request.read_checkpoint_present){
+            
+            // Check if file has been written after partially processing this read request
+            
+            if(request.service_start_time < file_lines[request.file_path].second){
+                cout<<"\nFile modified between partial read. Closing read connection"<<endl;
+                close(request.conn);
+
+            }
+
+            // Restore read checkpoint
+
+            infile.seekg(request.read_chkpt_position);
+
+        }else {
+            request.read_packet_to_send = "";
+            request.read_checkpoint_lines_read = 0;
+        }
+        
         while (getline(infile, line)) {
-            packet_to_send += line;
+            request.read_packet_to_send += line;
 
-            line_count++;
+            request.read_checkpoint_lines_read ++;
 
-            if (line_count >= packet_size){
+            if (request.read_checkpoint_lines_read >= packet_size){
                 request.req_status = true;
-                request.read_data = packet_to_send;
+                request.read_data = request.read_packet_to_send;
 
-                auto timestamp_now = system_clock::now();               
-                auto timestamp_ms = duration_cast<milliseconds>(         
-                    timestamp_now.time_since_epoch()
-                ).count();
-
-                request.completion_time = timestamp_ms;
+               
+                request.completion_time = get_current_timestamp();
 
                 string response_message = request.convert_to_json();
 
                 cout<<"\n Sending server response to client : \n"<<response_message<<endl;
-                send(connection, response_message.c_str(), response_message.size(), 0);
+                send(request.conn, response_message.c_str(), response_message.size(), 0);
 
-                line_count = 0;
-                packet_to_send = "";
+                request.read_checkpoint_lines_read = 0;
+                request.read_packet_to_send = "";
 
             }
 
-        }
+            // Creating read checkpoint in request
+            if(get_duration(processing_start_time, get_current_timestamp()) >= quantum_size){
+                request.read_checkpoint_present = true;
+                request.read_chkpt_position = infile.tellg();
 
-        if (packet_to_send.length() > 0){
-            request.req_status = true;
-            request.read_data = packet_to_send;
+                return request;
+
+            }
 
             
-            auto timestamp_now = system_clock::now();               
-            auto timestamp_ms = duration_cast<milliseconds>(         
-                timestamp_now.time_since_epoch()
-            ).count();
 
-            request.completion_time = timestamp_ms;
+        }
+
+        if (request.read_packet_to_send.length() > 0){
+            request.req_status = true;
+            request.read_data = request.read_packet_to_send;
+
+
+            request.completion_time = get_current_timestamp();
 
             string response_message = request.convert_to_json();
 
 
             cout<<"\n Sending server response to client : \n"<<response_message<<endl;
-            send(connection, response_message.c_str(), response_message.size(), 0);
+            send(request.conn, response_message.c_str(), response_message.size(), 0);
 
         }
         
-        close(connection);
+        close(request.conn);
+
+
+        RequestResponse req;
+        return req;
 
         
         
     }
 
-    void write(){
+    RequestResponse write(){
 
         
         write_file(request.file_path, request.write_data);
@@ -121,14 +170,15 @@ class ServerWorker{
 
         string response_message = request.convert_to_json();
         cout<<"\n Sending server response to client : \n"<<response_message<<endl;
-        send(connection, response_message.c_str(), response_message.size(), 0);
+        send(request.conn, response_message.c_str(), response_message.size(), 0);
 
 
 
         
-        close(connection);
+        close(request.conn);
 
-
+        RequestResponse req;
+        return req;
 
 
     }

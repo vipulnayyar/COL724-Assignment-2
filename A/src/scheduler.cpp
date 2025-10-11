@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include "server-worker.cpp"
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -13,11 +12,17 @@
 using namespace std::chrono;
 
 
-map<string, int> file_lines;
+map<string, pair<int, long long>> file_lines;
 mutex mutex_file_lines; 
+
+#include "server-worker.cpp"
+
 
 class Scheduler{
     public:
+
+    queue<RequestResponse> fcfs_queue;
+
 
 
     
@@ -29,13 +34,25 @@ class Scheduler{
     condition_variable cv;
     vector<thread> worker_threads;
     int worker_thread_count;
+    int quantum_size = 0;
+
 
     virtual void push(RequestResponse req) = 0;
     virtual RequestResponse pop() = 0;
 
-    Scheduler(int server_threads, int p){
+    Scheduler(int server_threads, int p, int q){
         worker_thread_count = server_threads;
         packet_size = p;
+        quantum_size = q;
+    }
+
+    long long get_current_timestamp(){
+        auto timestamp_now = system_clock::now();               
+        auto timestamp_ms = duration_cast<milliseconds>(         
+            timestamp_now.time_since_epoch()
+        ).count();
+
+        return timestamp_ms;
     }
 
     void server_loop(string server_addr, int port){
@@ -86,16 +103,13 @@ class Scheduler{
             auto bytesRead = read(conn, msg_buffer, 1000);
             //cout << "The message was: " << msg_buffer<<endl;
 
-            auto timestamp_now = system_clock::now();               
-            auto timestamp_ms = duration_cast<milliseconds>(         
-                timestamp_now.time_since_epoch()
-            ).count();
+           
 
             
             RequestResponse req;
             
             req.convert_from_json(msg_buffer);
-            req.arrival_time = timestamp_ms;
+            req.arrival_time = get_current_timestamp();
             req.conn = conn;
             cout<<"Request received"<<endl;
             cout<<req.convert_to_json()<<endl;
@@ -121,20 +135,23 @@ class Scheduler{
             if(req.req_type == "none")
                 continue;
 
-            auto timestamp_now = system_clock::now();               
-            auto timestamp_ms = duration_cast<milliseconds>(         
-                timestamp_now.time_since_epoch()
-            ).count();
-
-            req.service_start_time = timestamp_ms;
+            
+            req.service_start_time = get_current_timestamp();
             
             cout<<"Request picked from queue by worker "<< id;
 
-            server_worker.process_req(req);
+            RequestResponse processed_req = server_worker.process_req(req, quantum_size);
+
+            if (processed_req.req_type == req.req_type){
+
+                // Reinserting req at end of queue if original req is received
+                push(processed_req);
+
+            }
 
             if(req.req_type=="write"){
                 mutex_file_lines.lock();
-                file_lines[req.file_path] = req.write_num_lines;
+                file_lines[req.file_path] = {req.write_num_lines, get_current_timestamp()};
                 mutex_file_lines.unlock();
             }
 
@@ -160,7 +177,7 @@ class FCFSScheduler : public Scheduler{
     using Scheduler::Scheduler;
     public:
 
-    queue<RequestResponse> fcfs_queue;
+    
 
 
     void push(RequestResponse req) override{
@@ -216,7 +233,7 @@ class CompareSJF {
             a_num_lines_to_process = a.write_num_lines;
         else{
             if (file_lines.count(a.file_path) > 0)
-                a_num_lines_to_process = file_lines[a.file_path];
+                a_num_lines_to_process = file_lines[a.file_path].first;
             else{
                 cout<<"\n Num files not known for path "<<a.file_path;
                 exit(1);
@@ -228,7 +245,7 @@ class CompareSJF {
             b_num_lines_to_process = b.write_num_lines;
         }else{
             if (file_lines.count(b.file_path) > 0)
-                b_num_lines_to_process = file_lines[b.file_path];
+                b_num_lines_to_process = file_lines[b.file_path].first;
             else{
                 cout<<"\n Num files not known for path "<<b.file_path;
                 exit(1);
@@ -291,19 +308,13 @@ class SJFScheduler : public Scheduler{
 };
 
 class RRScheduler : public Scheduler{
+    using Scheduler::Scheduler;
     public:
-
-    int quantum_size;
-
-    RRScheduler(int server_threads, int p, int q ) 
-    : Scheduler(server_threads, p), quantum_size(p){
-        
-    }
 
     void push(RequestResponse req) override{
         mutex_queue.lock();
 
-    //    request_queue.push(req);
+        fcfs_queue.push(req);
 
         mutex_queue.unlock();
 
@@ -313,6 +324,24 @@ class RRScheduler : public Scheduler{
 
     RequestResponse pop() override{
 
+        unique_lock<std::mutex> lock(mutex_queue);
+
+        cv.wait(lock, [this]{ return !fcfs_queue.empty() || exiting ; });
+        
+        if(!fcfs_queue.empty()){
+
+            RequestResponse req = fcfs_queue.front();
+            fcfs_queue.pop();
+            lock.unlock();
+
+            return req;
+
+
+        }
+        lock.unlock();
+
+        RequestResponse req;
+        return req;
     }
 
     
