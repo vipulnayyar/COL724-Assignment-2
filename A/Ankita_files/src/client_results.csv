@@ -1,9 +1,2 @@
 req_id,req_type,file_path,client_send_ms,client_complete_ms,server_arrival,server_start,server_finish,response_time_ms,waiting_time_ms
-3,read,sample1.txt,1,11,3499349,3499350,,10,1
-6,read,sample1.txt,4,11,3499350,3499355,,7,5
-5,read,sample1.txt,4,12,3499349,3499354,,8,5
-1,read,sample1.txt,0,15,3499349,3499350,21605372,18106023,1
-4,read,sample1.txt,1,19,3499349,3499350,,18,1
-7,read,sample1.txt,4,19,3499350,3499360,,15,10
-2,read,sample1.txt,0,20,3499349,3499350,,20,1
-8,read,sample1.txt,5,20,3499353,3499362,,15,9
+1,write,./data/sample1.txt,0,4,1760206689310,1760206689312,1760206689313,3,2

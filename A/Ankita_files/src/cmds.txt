@@ -1,0 +1,9 @@
+PUT ./data/file1.txt
+PUT ./data/file2.txt
+PUT ./data/file3.txt
+PUT ./data/file4.txt
+GET file1.txt
+GET file2.txt
+GET file3.txt
+GET file4.txt
+

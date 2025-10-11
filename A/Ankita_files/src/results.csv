@@ -1,0 +1,9 @@
+req_id,req_type,file_path,client_send_ms,client_complete_ms,server_arrival,server_start,server_finish,response_time_ms,waiting_time_ms
+2,write,./data/file2.txt,0,8,1760207549920,1760207549920,1760207549924,4,0
+1,write,./data/file1.txt,0,12,1760207549919,1760207549920,1760207549924,5,1
+3,write,./data/file3.txt,1,12,1760207549920,1760207549921,1760207549922,2,1
+4,write,./data/file4.txt,1,13,1760207549920,1760207549924,1760207549929,9,4
+8,read,file4.txt,6,10510,,,,10504,0
+7,read,file3.txt,5,10510,,,,10505,0
+6,read,file2.txt,3,10510,,,,10507,0
+5,read,file1.txt,3,10510,,,,10507,0
