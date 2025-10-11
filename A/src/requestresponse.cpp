@@ -5,6 +5,7 @@ using namespace std;
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
+using namespace rapidjson;
 
 // Combined Request format for Read and Writes
 class RequestResponse{
@@ -13,6 +14,7 @@ class RequestResponse{
 
     int req_id = -1;
     string req_type = "none";
+    int conn = -1;
 
     int arrival_time = 0;
     int service_start_time = 0;

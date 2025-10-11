@@ -4,6 +4,11 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include "server-worker.cpp"
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+
 
 class Scheduler{
     public:
@@ -16,12 +21,19 @@ class Scheduler{
 class FCFSScheduler : public Scheduler{
     public:
 
-    int worker_threads;
     int packet_size;
+    bool exiting = false;
+    queue<RequestResponse> request_queue;
+    mutex mutex_queue;
+    condition_variable cv;
+    vector<thread> worker_threads;
 
     FCFSScheduler(int server_threads, int p){
-        worker_threads = server_threads;
         packet_size = p;
+
+        for(int i = 0; i < server_threads; ++i)
+            worker_threads.emplace_back(&FCFSScheduler::worker_loop, this, i);
+
     }
     
 
@@ -54,14 +66,18 @@ class FCFSScheduler : public Scheduler{
 
         cout<<"Listen status = "<<listen_status <<endl;
 
-        int addrlen = sizeof(socket_address);
-        int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
+        
 
-        ServerWorker server_worker(packet_size);
        
+       
+        // connection loop
         while(1){
 
-            cout<<"Listening"<<endl;
+
+            cout<<"Waiting for new connection"<<endl;
+
+            int addrlen = sizeof(socket_address);
+            int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
             
 
             char msg_buffer[1000] = {0};
@@ -70,15 +86,62 @@ class FCFSScheduler : public Scheduler{
 
             RequestResponse req;
             req.convert_from_json(msg_buffer);
+            req.conn = conn;
             cout<<req.convert_to_json()<<endl;
 
-            server_worker.process_req(conn, req);
+            push(req);
 
             
   
         }
     }
 
+    void push(RequestResponse req){
+        mutex_queue.lock();
+
+        request_queue.push(req);
+
+        mutex_queue.unlock();
+
+        cv.notify_one();
+
+    }
+
+
+    void worker_loop(int id){
+        ServerWorker server_worker(packet_size);
+
+        while(1){
+
+            unique_lock<std::mutex> lock(mutex_queue);
+
+            cv.wait(lock, [this]{ return !request_queue.empty() || exiting ; });
+         
+            if(!request_queue.empty()){
+                RequestResponse req = request_queue.front();
+                request_queue.pop();
+                lock.unlock();
+                server_worker.process_req(req);
+
+            }
+
+            // Add Clean exit
+
+            
+            
+
+        }
+
+    }
+
+    void stop(){
+
+        exiting = true;
+        cv.notify_all();
+        for (auto &t : worker_threads)
+            t.join();
+    }
+    
     
 };
 

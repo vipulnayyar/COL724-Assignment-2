@@ -17,9 +17,9 @@ class ServerWorker{
 
     }
 
-    void process_req( int conn, RequestResponse req){
+    void process_req( RequestResponse req){
 
-        connection = conn;
+        connection = req.conn;
         request = req;
 
         if(request.req_type == "read"){
