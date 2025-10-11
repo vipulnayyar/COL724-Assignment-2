@@ -13,24 +13,25 @@
 using namespace std::chrono;
 
 
-
+map<string, int> file_lines;
+mutex mutex_file_lines; 
 
 class Scheduler{
     public:
 
 
-    map<string, int> file_lines;
-    mutex mutex_file_lines; 
+    
 
     int packet_size;
     bool exiting = false;
-    queue<RequestResponse> request_queue;
+    
     mutex mutex_queue;
     condition_variable cv;
     vector<thread> worker_threads;
     int worker_thread_count;
 
     virtual void push(RequestResponse req) = 0;
+    virtual RequestResponse pop() = 0;
 
     Scheduler(int server_threads, int p){
         worker_thread_count = server_threads;
@@ -115,38 +116,27 @@ class Scheduler{
 
         while(1){
 
-            unique_lock<std::mutex> lock(mutex_queue);
+            RequestResponse req = pop();
 
-            cv.wait(lock, [this]{ return !request_queue.empty() || exiting ; });
-         
-            if(!request_queue.empty()){
+            if(req.req_type == "none")
+                continue;
 
-                cout<<"Request picked from queue by worker "<< id;
-                RequestResponse req = request_queue.front();
-                request_queue.pop();
-                lock.unlock();
+            auto timestamp_now = system_clock::now();               
+            auto timestamp_ms = duration_cast<milliseconds>(         
+                timestamp_now.time_since_epoch()
+            ).count();
 
-                auto timestamp_now = system_clock::now();               
-                auto timestamp_ms = duration_cast<milliseconds>(         
-                    timestamp_now.time_since_epoch()
-                ).count();
+            req.service_start_time = timestamp_ms;
+            
+            cout<<"Request picked from queue by worker "<< id;
 
-                req.service_start_time = timestamp_ms;
+            server_worker.process_req(req);
 
-                server_worker.process_req(req);
-
-                if(req.req_type=="write"){
-                    mutex_file_lines.lock();
-                    file_lines[req.file_path] = req.write_num_lines;
-                    mutex_file_lines.unlock();
-                }
-
+            if(req.req_type=="write"){
+                mutex_file_lines.lock();
+                file_lines[req.file_path] = req.write_num_lines;
+                mutex_file_lines.unlock();
             }
-
-            // Add Clean exit
-
-            
-            
 
         }
 
@@ -170,10 +160,13 @@ class FCFSScheduler : public Scheduler{
     using Scheduler::Scheduler;
     public:
 
+    queue<RequestResponse> fcfs_queue;
+
+
     void push(RequestResponse req) override{
         mutex_queue.lock();
 
-        request_queue.push(req);
+        fcfs_queue.push(req);
 
         mutex_queue.unlock();
 
@@ -182,6 +175,27 @@ class FCFSScheduler : public Scheduler{
     }
     
 
+    RequestResponse pop() override{
+
+        unique_lock<std::mutex> lock(mutex_queue);
+
+        cv.wait(lock, [this]{ return !fcfs_queue.empty() || exiting ; });
+        
+        if(!fcfs_queue.empty()){
+
+            RequestResponse req = fcfs_queue.front();
+            fcfs_queue.pop();
+            lock.unlock();
+
+            return req;
+
+
+        }
+        lock.unlock();
+
+        RequestResponse req;
+        return req;
+    }
 
     
 
@@ -191,23 +205,85 @@ class FCFSScheduler : public Scheduler{
     
 };
 
+class CompareSJF {
+    public:
+    bool operator()(RequestResponse a,  RequestResponse b) {
+        
+        int a_num_lines_to_process = 0;
+        int b_num_lines_to_process = 0;
+
+        if (a.req_type == "write")
+            a_num_lines_to_process = a.write_num_lines;
+        else{
+            if (file_lines.count(a.file_path) > 0)
+                a_num_lines_to_process = file_lines[a.file_path];
+            else{
+                cout<<"\n Num files not known for path "<<a.file_path;
+                exit(1);
+            }
+        }
+
+
+        if (b.req_type == "write"){
+            b_num_lines_to_process = b.write_num_lines;
+        }else{
+            if (file_lines.count(b.file_path) > 0)
+                b_num_lines_to_process = file_lines[b.file_path];
+            else{
+                cout<<"\n Num files not known for path "<<b.file_path;
+                exit(1);
+            }
+        }  
+
+        if (a_num_lines_to_process != b_num_lines_to_process)
+            return a_num_lines_to_process > b_num_lines_to_process;
+
+        return a.arrival_time > b.arrival_time;
+
+    };
+
+};
+
+
 class SJFScheduler : public Scheduler{
     using Scheduler::Scheduler;
     public:
 
-    int worker_threads;
-    int packet_size;
-
+    priority_queue<RequestResponse, vector<RequestResponse>, CompareSJF> sjf_pq;
+    
    
 
     void push(RequestResponse req) override{
         mutex_queue.lock();
 
-        request_queue.push(req);
+        sjf_pq.push(req);
 
         mutex_queue.unlock();
 
         cv.notify_one();
+
+    }
+
+    RequestResponse pop() override {
+
+        unique_lock<std::mutex> lock(mutex_queue);
+
+        cv.wait(lock, [this]{ return !sjf_pq.empty() || exiting ; });
+        
+        if(!sjf_pq.empty()){
+
+            RequestResponse req = sjf_pq.top();
+            sjf_pq.pop();
+            lock.unlock();
+
+            return req;
+
+
+        }
+        lock.unlock();
+
+        RequestResponse req;
+        return req;
 
     }
 
@@ -217,8 +293,6 @@ class SJFScheduler : public Scheduler{
 class RRScheduler : public Scheduler{
     public:
 
-    int worker_threads;
-    int packet_size;
     int quantum_size;
 
     RRScheduler(int server_threads, int p, int q ) 
@@ -229,11 +303,15 @@ class RRScheduler : public Scheduler{
     void push(RequestResponse req) override{
         mutex_queue.lock();
 
-        request_queue.push(req);
+    //    request_queue.push(req);
 
         mutex_queue.unlock();
 
         cv.notify_one();
+
+    }
+
+    RequestResponse pop() override{
 
     }
 
