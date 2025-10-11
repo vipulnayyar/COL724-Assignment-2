@@ -23,10 +23,7 @@ class Scheduler{
 
     queue<RequestResponse> fcfs_queue;
 
-
-
     
-
     int packet_size;
     bool exiting = false;
     
@@ -151,6 +148,8 @@ class Scheduler{
             if (processed_req.req_type == req.req_type){
 
                 // Reinserting req at end of queue if original req is received
+
+                cout<<"\nAdding request to back of queue"<<endl;
                 push(processed_req);
 
             }

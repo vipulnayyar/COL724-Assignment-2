@@ -43,9 +43,9 @@
 }
  */
 
-void write_file(string filepath, string write_data){
+void append_file(string filepath, string write_data){
 
-    ofstream outfile(filepath);
+    ofstream outfile(filepath, ios::app);
 
     if (outfile.is_open()) {
         outfile << write_data;

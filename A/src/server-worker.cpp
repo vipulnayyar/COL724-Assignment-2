@@ -2,6 +2,8 @@
 #include <fstream>
 #include "requestresponse.cpp"
 #include "file-io.cpp"
+#include <algorithm>
+
 using namespace std::chrono;
 
 
@@ -157,30 +159,69 @@ class ServerWorker{
 
     RequestResponse write(){
 
+        size_t total_data_bytes = request.write_data.size();
+        int chunk_size = 10;
+
+        ofstream outfile(request.file_path, ios::app);
+
+        if(request.write_checkpoint_present == false)
+            request.write_checkpoint_bytes_written = 0;
+
+        if (!outfile.is_open()) {
+            cerr << "Unable to open file for writing" << request.file_path << endl;
+
+            RequestResponse dummyreq;
+            return dummyreq;
+        }
+
+        while(request.write_checkpoint_bytes_written < total_data_bytes){
+
+            size_t to_write;
+            if(chunk_size < (total_data_bytes - request.write_checkpoint_bytes_written))
+                to_write = chunk_size;
+            else
+                to_write = (total_data_bytes - request.write_checkpoint_bytes_written);
+
+            outfile.write(request.write_data.data() + 
+            request.write_checkpoint_bytes_written, to_write);
+
+            request.write_checkpoint_bytes_written += to_write;
+
+
+            // Creating write checkpoint in request
+            if(get_duration(processing_start_time, get_current_timestamp()) >= quantum_size){
+                request.write_checkpoint_present = true;
+
+                outfile.close();
+                return request;
+
+            }
+
+
+        }
+
         
-        write_file(request.file_path, request.write_data);
+        outfile.close();
+        
+        
+        
+
+
 
         request.write_data = "";
         request.req_status = true;
 
-        auto timestamp_now = system_clock::now();               
-        auto timestamp_ms = duration_cast<milliseconds>(         
-            timestamp_now.time_since_epoch()
-        ).count();
-
-        request.completion_time = timestamp_ms;
+        request.completion_time = get_current_timestamp();
 
         string response_message = request.convert_to_json();
         cout<<"\n Sending server response to client : \n"<<response_message<<endl;
         send(request.conn, response_message.c_str(), response_message.size(), 0);
 
-
-
         
         close(request.conn);
 
-        RequestResponse req;
-        return req;
+        RequestResponse dummyreq;
+        return dummyreq;
 
 
     }
