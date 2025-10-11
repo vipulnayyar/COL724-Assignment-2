@@ -27,12 +27,13 @@ class FCFSScheduler : public Scheduler{
     mutex mutex_queue;
     condition_variable cv;
     vector<thread> worker_threads;
+    int worker_thread_count;
 
     FCFSScheduler(int server_threads, int p){
         packet_size = p;
+        worker_thread_count = server_threads;
 
-        for(int i = 0; i < server_threads; ++i)
-            worker_threads.emplace_back(&FCFSScheduler::worker_loop, this, i);
+        
 
     }
     
@@ -66,6 +67,8 @@ class FCFSScheduler : public Scheduler{
 
         cout<<"Listen status = "<<listen_status <<endl;
 
+        for(int i = 0; i < worker_thread_count; ++i)
+            worker_threads.emplace_back(&FCFSScheduler::worker_loop, this, i);
         
 
        
@@ -74,7 +77,7 @@ class FCFSScheduler : public Scheduler{
         while(1){
 
 
-            cout<<"Waiting for new connection"<<endl;
+            cout<<"\nWaiting for new connection"<<endl;
 
             int addrlen = sizeof(socket_address);
             int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
@@ -82,14 +85,17 @@ class FCFSScheduler : public Scheduler{
 
             char msg_buffer[1000] = {0};
             auto bytesRead = read(conn, msg_buffer, 1000);
-            cout << "The message was: " << msg_buffer<<endl;
+            //cout << "The message was: " << msg_buffer<<endl;
 
             RequestResponse req;
             req.convert_from_json(msg_buffer);
             req.conn = conn;
+            cout<<"Request received"<<endl;
             cout<<req.convert_to_json()<<endl;
 
             push(req);
+
+            cout<<"Request dispatched to queue";
 
             
   
@@ -109,7 +115,9 @@ class FCFSScheduler : public Scheduler{
 
 
     void worker_loop(int id){
-        ServerWorker server_worker(packet_size);
+
+        cout<<"\nStarting new Worker thread with id : "<<id << endl;
+        ServerWorker server_worker(id, packet_size);
 
         while(1){
 
@@ -118,6 +126,8 @@ class FCFSScheduler : public Scheduler{
             cv.wait(lock, [this]{ return !request_queue.empty() || exiting ; });
          
             if(!request_queue.empty()){
+
+                cout<<"Request picked from queue by worker "<< id;
                 RequestResponse req = request_queue.front();
                 request_queue.pop();
                 lock.unlock();

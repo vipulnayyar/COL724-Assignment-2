@@ -52,7 +52,7 @@ void write_file(string filepath, string write_data){
 
         outfile.close();
 
-        cout << "Data written to " << filepath << endl;
+        cout << "\nData written to " << filepath << endl;
     } else {
         cerr << "Unable to open file for writing" << filepath << endl;
     }

@@ -10,9 +10,11 @@ class ServerWorker{
     int connection;
     RequestResponse request;
     int packet_size;
+    int worker_id;
 
 
-    ServerWorker(int p){
+    ServerWorker(int id, int p){
+        worker_id = id;
         packet_size = p;
 
     }
@@ -65,9 +67,11 @@ class ServerWorker{
 
 
         string response_message = request.convert_to_json();
+        cout<<"\n Sending server response to client : \n"<<response_message<<endl;
         send(connection, response_message.c_str(), response_message.size(), 0);
 
         
+        close(connection);
 
 
 
