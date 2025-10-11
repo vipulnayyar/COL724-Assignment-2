@@ -1,6 +1,6 @@
 
 
-string read_file(string filepath, int read_line_index, int num_lines_to_read){
+/* string read_file(string filepath, int read_line_index){
 
     ifstream infile(filepath);
 
@@ -41,7 +41,7 @@ string read_file(string filepath, int read_line_index, int num_lines_to_read){
     return result;
 
 }
-
+ */
 
 void write_file(string filepath, string write_data){
 

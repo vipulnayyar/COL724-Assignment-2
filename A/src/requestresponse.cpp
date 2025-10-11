@@ -16,12 +16,12 @@ class RequestResponse{
     string req_type = "none";
     int conn = -1;
 
-    int arrival_time = 0;
-    int service_start_time = 0;
-    int completion_time = 0;
+    long long arrival_time = 0;
+    long long service_start_time = 0;
+    long long completion_time = 0;
 
     int read_line_index = -1;
-    int read_num_lines = -1;
+    int write_num_lines = -1;
     string read_data;
 
     string file_path = "";
@@ -49,7 +49,7 @@ class RequestResponse{
         if (doc.HasMember("service_start_time")) service_start_time = doc["service_start_time"].GetInt();
         if (doc.HasMember("completion_time")) completion_time = doc["completion_time"].GetInt();
         if (doc.HasMember("read_line_index")) read_line_index = doc["read_line_index"].GetInt();
-        if (doc.HasMember("read_num_lines")) read_num_lines = doc["read_num_lines"].GetInt();
+        if (doc.HasMember("write_num_lines")) write_num_lines = doc["write_num_lines"].GetInt();
 
         if (doc.HasMember("write_data")) write_data = doc["write_data"].GetString();
         if (doc.HasMember("file_path")) file_path = doc["file_path"].GetString();
@@ -74,7 +74,7 @@ class RequestResponse{
         doc.AddMember("service_start_time", service_start_time, allocator);
         doc.AddMember("completion_time", completion_time, allocator);
         doc.AddMember("read_line_index", read_line_index, allocator);
-        doc.AddMember("read_num_lines", read_num_lines, allocator);
+        doc.AddMember("write_num_lines", write_num_lines, allocator);
         doc.AddMember("req_status", req_status, allocator);
 
 

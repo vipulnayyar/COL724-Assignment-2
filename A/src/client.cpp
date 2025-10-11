@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
     req.req_status = false;
     req.file_path = (op == "PUT") ? server_filename : file_path;
     req.read_line_index = 1;
-    req.read_num_lines = packet_lines;
+    req.write_num_lines = packet_lines;
     req.req_type = (op == "PUT") ? "write" : "read";
 
     if (op == "PUT") {

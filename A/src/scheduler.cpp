@@ -8,18 +8,19 @@
 #include <mutex>
 #include <condition_variable>
 #include <thread>
+#include <map>
+#include <chrono>
+using namespace std::chrono;
+
+
 
 
 class Scheduler{
     public:
 
-    
 
-};
-
-
-class FCFSScheduler : public Scheduler{
-    public:
+    map<string, int> file_lines;
+    mutex mutex_file_lines; 
 
     int packet_size;
     bool exiting = false;
@@ -29,14 +30,12 @@ class FCFSScheduler : public Scheduler{
     vector<thread> worker_threads;
     int worker_thread_count;
 
-    FCFSScheduler(int server_threads, int p){
-        packet_size = p;
+    virtual void push(RequestResponse req) = 0;
+
+    Scheduler(int server_threads, int p){
         worker_thread_count = server_threads;
-
-        
-
+        packet_size = p;
     }
-    
 
     void server_loop(string server_addr, int port){
 
@@ -68,10 +67,9 @@ class FCFSScheduler : public Scheduler{
         cout<<"Listen status = "<<listen_status <<endl;
 
         for(int i = 0; i < worker_thread_count; ++i)
-            worker_threads.emplace_back(&FCFSScheduler::worker_loop, this, i);
+            worker_threads.emplace_back(&Scheduler::worker_loop, this, i);
         
 
-       
        
         // connection loop
         while(1){
@@ -87,8 +85,16 @@ class FCFSScheduler : public Scheduler{
             auto bytesRead = read(conn, msg_buffer, 1000);
             //cout << "The message was: " << msg_buffer<<endl;
 
+            auto timestamp_now = system_clock::now();               
+            auto timestamp_ms = duration_cast<milliseconds>(         
+                timestamp_now.time_since_epoch()
+            ).count();
+
+            
             RequestResponse req;
+            
             req.convert_from_json(msg_buffer);
+            req.arrival_time = timestamp_ms;
             req.conn = conn;
             cout<<"Request received"<<endl;
             cout<<req.convert_to_json()<<endl;
@@ -96,25 +102,13 @@ class FCFSScheduler : public Scheduler{
             push(req);
 
             cout<<"Request dispatched to queue";
-
-            
+    
   
         }
     }
 
-    void push(RequestResponse req){
-        mutex_queue.lock();
 
-        request_queue.push(req);
-
-        mutex_queue.unlock();
-
-        cv.notify_one();
-
-    }
-
-
-    void worker_loop(int id){
+     void worker_loop(int id){
 
         cout<<"\nStarting new Worker thread with id : "<<id << endl;
         ServerWorker server_worker(id, packet_size);
@@ -131,7 +125,21 @@ class FCFSScheduler : public Scheduler{
                 RequestResponse req = request_queue.front();
                 request_queue.pop();
                 lock.unlock();
+
+                auto timestamp_now = system_clock::now();               
+                auto timestamp_ms = duration_cast<milliseconds>(         
+                    timestamp_now.time_since_epoch()
+                ).count();
+
+                req.service_start_time = timestamp_ms;
+
                 server_worker.process_req(req);
+
+                if(req.req_type=="write"){
+                    mutex_file_lines.lock();
+                    file_lines[req.file_path] = req.write_num_lines;
+                    mutex_file_lines.unlock();
+                }
 
             }
 
@@ -151,26 +159,56 @@ class FCFSScheduler : public Scheduler{
         for (auto &t : worker_threads)
             t.join();
     }
+
+    
+
+
+};
+
+
+class FCFSScheduler : public Scheduler{
+    using Scheduler::Scheduler;
+    public:
+
+    void push(RequestResponse req) override{
+        mutex_queue.lock();
+
+        request_queue.push(req);
+
+        mutex_queue.unlock();
+
+        cv.notify_one();
+
+    }
+    
+
+
+    
+
+
+   
     
     
 };
 
 class SJFScheduler : public Scheduler{
+    using Scheduler::Scheduler;
     public:
 
     int worker_threads;
     int packet_size;
 
-    SJFScheduler(int server_threads, int p){
-        worker_threads = server_threads;
-        packet_size = p;
-    }
+   
 
-    void server_loop(){
+    void push(RequestResponse req) override{
+        mutex_queue.lock();
 
-        while(1){
-            
-        }
+        request_queue.push(req);
+
+        mutex_queue.unlock();
+
+        cv.notify_one();
+
     }
 
     
@@ -183,17 +221,20 @@ class RRScheduler : public Scheduler{
     int packet_size;
     int quantum_size;
 
-    RRScheduler(int server_threads, int p, int q ){
-        worker_threads = server_threads;
-        packet_size = p;
-        quantum_size = q;
+    RRScheduler(int server_threads, int p, int q ) 
+    : Scheduler(server_threads, p), quantum_size(p){
+        
     }
 
-    void server_loop(){
+    void push(RequestResponse req) override{
+        mutex_queue.lock();
 
-        while(1){
-            
-        }
+        request_queue.push(req);
+
+        mutex_queue.unlock();
+
+        cv.notify_one();
+
     }
 
     

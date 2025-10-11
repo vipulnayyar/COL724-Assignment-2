@@ -99,7 +99,7 @@ int main(int argc, char** argv){
         cout<<endl <<"Starting SJF Scheduler";
         SJFScheduler scheduler = SJFScheduler(SERVER_THREADS, packet_size);
 
-        scheduler.server_loop();
+        scheduler.server_loop(SERVER_IP, SERVER_PORT);
 
     }else if(sched_policy == "rr"){
 
@@ -107,7 +107,7 @@ int main(int argc, char** argv){
 
         RRScheduler scheduler = RRScheduler(SERVER_THREADS, packet_size, rr_quantum);
 
-        scheduler.server_loop();
+        scheduler.server_loop(SERVER_IP, SERVER_PORT);
 
     }else{
 
