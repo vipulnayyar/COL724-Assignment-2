@@ -36,14 +36,16 @@ class Scheduler{
     int worker_thread_count;
     int quantum_size = 0;
 
+    string file_store_dir = "";
 
     virtual void push(RequestResponse req) = 0;
     virtual RequestResponse pop() = 0;
 
-    Scheduler(int server_threads, int p, int q){
+    Scheduler(int server_threads, string file_dir, int p, int q){
         worker_thread_count = server_threads;
         packet_size = p;
         quantum_size = q;
+        file_store_dir = file_dir;
     }
 
     long long get_current_timestamp(){
@@ -114,6 +116,8 @@ class Scheduler{
             cout<<"Request received"<<endl;
             cout<<req.convert_to_json()<<endl;
 
+            req.file_path = file_store_dir + "/" + req.file_path;
+
             push(req);
 
             cout<<"Request dispatched to queue";
@@ -137,6 +141,8 @@ class Scheduler{
 
             
             req.service_start_time = get_current_timestamp();
+
+            
             
             cout<<"Request picked from queue by worker "<< id;
 

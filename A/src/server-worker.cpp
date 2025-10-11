@@ -120,6 +120,7 @@ class ServerWorker{
                 request.read_checkpoint_present = true;
                 request.read_chkpt_position = infile.tellg();
 
+                infile.close();
                 return request;
 
             }
@@ -145,9 +146,10 @@ class ServerWorker{
         
         close(request.conn);
 
+        infile.close();
 
-        RequestResponse req;
-        return req;
+        RequestResponse dummyreq;
+        return dummyreq;
 
         
         

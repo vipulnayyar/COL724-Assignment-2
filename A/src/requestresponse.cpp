@@ -36,7 +36,7 @@ class RequestResponse{
 
 
     bool write_checkpoint_present = false;
-    streampos write_chkpt_position;
+    int write_checkpoint_bytes_written;
 
     /* void append_line_data(string line){
         read_data.push_back(line);
