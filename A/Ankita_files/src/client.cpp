@@ -25,12 +25,13 @@ using namespace std::chrono;
 using namespace std;
 using namespace rapidjson;
 
-steady_clock::time_point program_start;
+//steady_clock::time_point program_start;
 
-long now_ms() {
-    //cout << "Client now_ms:"<< endl;
-    return duration_cast<milliseconds>(steady_clock::now() - program_start).count();
+long long now_ms() {
+    auto now = chrono::system_clock::now();
+    return chrono::duration_cast<chrono::milliseconds>(now.time_since_epoch()).count();
 }
+
 
 
 // ------------------ config & globals ------------------
@@ -324,7 +325,9 @@ int main(int argc, char** argv) {
     //cout << "Client main:"<< endl;
     string config_file, mode="single", op, filearg, namearg, commands_file;
     int packet_p=1, client_threads=-1, iterations=1;
-    string output_csv="client_results.csv";
+    //string output_csv="client_results.csv";
+    string output_csv="results/client_results.csv";
+
     bool dry_run=false;
     //cout << "Client main:"<< endl;
     for (int i=1;i<argc;i++){
@@ -346,7 +349,7 @@ int main(int argc, char** argv) {
 
     if (config_file.empty()) { cerr << "--config <file> is required\n"; return 1; }
     
-    program_start = steady_clock::now();
+    //program_start = steady_clock::now();
 
     // read config.json
     ifstream ifs(config_file);
@@ -369,9 +372,8 @@ int main(int argc, char** argv) {
             if (filearg.empty() || namearg.empty()) { cerr << "PUT requires --file and --name\n"; return 1; }
             //commands.emplace_back("PUT", filearg);
             // Assign a unique target name for multi-threaded testing
-            int req_id = ++global_req_id;
-            string target_name = "sample1_" + to_string(req_id) + ".txt";
-            commands.emplace_back("PUT", target_name);
+            
+            commands.emplace_back("PUT", filearg);
         } else if (op=="GET") {
             if (namearg.empty()) { cerr << "GET requires --name\n"; return 1; }
             commands.emplace_back("GET", namearg);

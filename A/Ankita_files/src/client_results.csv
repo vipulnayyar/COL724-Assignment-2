@@ -1,2 +1,0 @@
-req_id,req_type,file_path,client_send_ms,client_complete_ms,server_arrival,server_start,server_finish,response_time_ms,waiting_time_ms
-1,write,./data/sample1.txt,0,4,1760206689310,1760206689312,1760206689313,3,2
