@@ -10,6 +10,8 @@ SRC_DIR = BASE_DIR / "src"
 DATA_DIR = BASE_DIR / "data"
 RESULTS_DIR = BASE_DIR / "results"
 CMDS_DIR = BASE_DIR / "cmds"
+SERVER_DATA_DIR = BASE_DIR / "server_files"
+SERVER_DATA_DIR.mkdir(exist_ok=True)
 
 SERVER_EXEC = BASE_DIR / "bin" / "server"
 CLIENT_EXEC = BASE_DIR / "bin" / "client"
@@ -37,15 +39,18 @@ def terminate_process(proc):
         proc.wait(timeout=2)
     except subprocess.TimeoutExpired:
         proc.kill()
+        
+file_index = 0
 
 def run_client_for_duration(client_threads, server_threads, sched_policy, packet_size, run_index, duration_sec=TOTAL_RUN_DURATION):
+    global file_index
     """
     Alternates 2 sec PUT and 2 sec GET repeatedly until duration_sec
     Cycles through DATA_FILES
     Output file named based on config and run index
     """
     end_time = time.time() + duration_sec
-    file_index = 0
+    
 
     output_file = RESULTS_DIR / f"{sched_policy}_clients{client_threads}_servers{server_threads}_p{packet_size}_run{run_index}.csv"
 
@@ -89,7 +94,7 @@ def run_server(sched_policy, server_threads, packet_size):
         str(SERVER_EXEC),
         "--config-file", str(CONFIG_FILE),
         "--sched", sched_policy,
-        "--file", str(DATA_DIR),
+        "--file", str(SERVER_DATA_DIR),
         "--p", str(packet_size),
         "--server-threads", str(server_threads)
     ])
