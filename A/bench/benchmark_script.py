@@ -20,7 +20,7 @@ CLIENT_EXEC = BASE_DIR / "../bin" / "client"
 CONFIG_FILE = BASE_DIR / "../conf/config.json"
 
 # ---------------- Benchmark parameters ----------------
-SCHED_POLICIES = ["rr"]
+SCHED_POLICIES = ["fcfs", "sjf", "rr"]
 SERVER_THREADS_LIST = [1, 3, 5]
 CLIENT_THREADS_LIST = [1, 3, 5]
 PACKET_SIZES = [1, 3, 5]
