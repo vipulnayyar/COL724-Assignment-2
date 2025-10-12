@@ -1,4 +1,3 @@
-sched_policy,server_threads,client_threads,packet_size,run_index,run_time_sec
 1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample1.txt,fcfs,1,1,1,1760282054589,1760282054589,1760282054589,
 1,read,sample1.txt,fcfs,1,1,1,1760282054594,1760282054594,1760282057605,
 1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample2.txt,fcfs,1,1,1,1760282058307,1760282058307,1760282058307,

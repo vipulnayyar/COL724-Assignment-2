@@ -248,7 +248,7 @@ bool do_get_single(int req_id, const string &server_filename, int packet_p, CSVR
 
         if (!doc.IsArray()) {
             cerr << "Not a JSON array!" << endl;
-            cerr<<"\n"<<reply<<endl;
+            //cerr<<"\n"<<reply<<endl;
             break;
             // return 1;
         }

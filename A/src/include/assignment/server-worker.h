@@ -81,8 +81,7 @@ class ServerWorker{
         cout<<"\nReading file : "<<request.file_path<<endl;
 
         string line;
-        //string packet_to_send = "";
-        //int line_count = 0;
+
 
         if(quantum_size > 0 && request.read_checkpoint_present){
             
@@ -106,7 +105,7 @@ class ServerWorker{
             send(request.conn, c.c_str(), c.size(), 0);
         }
 
-        bool start_of_file = true;
+        
         
         while (getline(infile, line)) {
             request.read_packet_to_send += line;
@@ -122,13 +121,13 @@ class ServerWorker{
 
                 string response_message = request.convert_to_json();
 
-                if(!start_of_file){
+                if(!request.read_start_of_file){
 
                     string c = " , ";
                     send(request.conn, c.c_str(), c.size(), 0);
 
                 }else{
-                    start_of_file = false;
+                    request.read_start_of_file = false;
                 }
 
                 //cout<<"\n Sending server response to client : \n"<<response_message<<endl;
@@ -141,6 +140,11 @@ class ServerWorker{
 
             // Creating read checkpoint in request
             if(quantum_size > 0 && get_duration(processing_start_time, get_current_timestamp()) >= quantum_size){
+               
+                //cout<<"\n quantum_size is "<< quantum_size<<endl;
+                //cout<<"\n processing_start_time is "<<processing_start_time<<endl;
+                //cout<<"\n current_timestamp is "<< get_current_timestamp() << endl;
+
                 request.read_checkpoint_present = true;
                 request.read_chkpt_position = infile.tellg();
 
@@ -162,7 +166,7 @@ class ServerWorker{
 
             string response_message = request.convert_to_json();
 
-            if(!start_of_file){
+            if(!request.read_start_of_file){
 
                 string c = " , ";
                 send(request.conn, c.c_str(), c.size(), 0);

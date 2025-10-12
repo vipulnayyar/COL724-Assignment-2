@@ -37,6 +37,7 @@ class RequestResponse{
     streampos read_chkpt_position;
     bool read_checkpoint_present = false;
     int read_checkpoint_lines_read = 0;
+    bool read_start_of_file = true;
 
 
     bool write_checkpoint_present = false;
@@ -50,7 +51,7 @@ class RequestResponse{
         doc.Parse(json_str.c_str());
         if (doc.HasParseError() || !doc.IsObject()) {
             cerr << "Failure of JSON parsing"<<endl;
-            cerr<<json_str.c_str();
+            //cerr<<json_str.c_str();
             //cerr <<"Server exiting";
             //exit(1);
         }

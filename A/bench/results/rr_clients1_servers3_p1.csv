@@ -1,0 +1,4 @@
+1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample1.txt,rr,3,1,1,1760285427653,1760285427653,1760285427653,
+1,read,sample1.txt,rr,3,1,1,1760285427659,1760285431878,1760285431888,
+1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample2.txt,rr,3,1,1,1760285432465,1760285432465,1760285432466,
+1,read,sample2.txt,rr,3,1,1,1760285432479,1760285435286,1760285435642,
