@@ -58,7 +58,7 @@ class RequestResponse{
 
         if (doc.HasMember("req_id")) req_id = doc["req_id"].GetInt();
         if (doc.HasMember("req_type")) req_type = doc["req_type"].GetString();
-        if (doc.HasMember("arrival_time")) arrival_time = doc["arrival_time"].GetInt();
+        if (doc.HasMember("arrival_time")) arrival_time = doc["arrival_time"].GetInt64();
         if (doc.HasMember("service_start_time")) service_start_time = doc["service_start_time"].GetInt();
         if (doc.HasMember("completion_time")) completion_time = doc["completion_time"].GetInt();
         if (doc.HasMember("read_line_index")) read_line_index = doc["read_line_index"].GetInt();
@@ -83,7 +83,7 @@ class RequestResponse{
 
         doc.AddMember("req_id", req_id, allocator);
         doc.AddMember("req_type", Value(req_type.c_str(), allocator), allocator);
-        doc.AddMember("arrival_time", arrival_time, allocator);
+        doc.AddMember("arrival_time", rapidjson::Value().SetInt64(arrival_time), allocator);
         doc.AddMember("service_start_time", service_start_time, allocator);
         doc.AddMember("completion_time", completion_time, allocator);
         doc.AddMember("read_line_index", read_line_index, allocator);
