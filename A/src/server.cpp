@@ -1,22 +1,14 @@
 
 #include <iostream>
 
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 
 #include <string>
 using namespace std;
-#include "conf.cpp"
+#include <assignment/conf.h>
 
 
-#include "scheduler.cpp"
-
-
-class Worker{
-    public:
-    
-
-};
-
+#include <assignment/scheduler.h>
 
 
 int main(int argc, char** argv){

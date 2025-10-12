@@ -9,13 +9,18 @@
 #include <thread>
 #include <map>
 #include <chrono>
+#include<iostream>
+
+using namespace std;
+
 using namespace std::chrono;
 
+#include <assignment/requestresponse.h>
+
+#include <assignment/server-worker.h>
 
 map<string, pair<int, long long>> file_lines;
 mutex mutex_file_lines; 
-
-#include "server-worker.cpp"
 
 
 class Scheduler{
@@ -124,7 +129,7 @@ class Scheduler{
     }
 
 
-     void worker_loop(int id){
+    void worker_loop(int id){
 
         cout<<"\nStarting new Worker thread with id : "<<id << endl;
         ServerWorker server_worker(id, packet_size);

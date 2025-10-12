@@ -7,7 +7,7 @@
 #include <chrono>
 
 #include "rapidjson/document.h"
-#include "requestresponse.cpp"
+#include <assignment/requestresponse.h>
 
 using namespace std;
 using namespace rapidjson;

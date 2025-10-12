@@ -1,3 +1,6 @@
+
+#pragma once
+
 #include <string>
 #include <vector>
 using namespace std;
@@ -6,6 +9,7 @@ using namespace std;
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 using namespace rapidjson;
+#include <iostream>
 
 // Combined Request format for Read and Writes
 class RequestResponse{

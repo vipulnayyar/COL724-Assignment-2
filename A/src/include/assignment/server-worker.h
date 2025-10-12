@@ -1,9 +1,16 @@
 
 #include <fstream>
-#include "requestresponse.cpp"
-#include "file-io.cpp"
 #include <algorithm>
+#include <string>
+#include <iostream>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
+#include <assignment/requestresponse.h>
+
+using namespace std;
 using namespace std::chrono;
 
 
@@ -80,11 +87,11 @@ class ServerWorker{
             
             // Check if file has been written after partially processing this read request
             
-            if(request.service_start_time < file_lines[request.file_path].second){
+            /* if(request.service_start_time < file_lines[request.file_path].second){
                 cout<<"\nFile modified between partial read. Closing read connection"<<endl;
                 close(request.conn);
 
-            }
+            } */
 
             // Restore read checkpoint
 

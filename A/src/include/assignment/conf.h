@@ -1,5 +1,7 @@
+#pragma once
 
 #include <string>
+#include <iostream>
 
 using namespace std;
 
@@ -9,12 +11,12 @@ using namespace std;
 #include "rapidjson/filereadstream.h"
 using namespace rapidjson;
 
+#include <assignment/conf.h>
 
 string SERVER_IP = "";
 int SERVER_PORT = -1;
 int SERVER_THREADS = -1;
 int CLIENT_THREADS = -1;
-
 
 // Loading config to global vars
 int load_config(string conf_file){
