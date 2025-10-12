@@ -10,6 +10,7 @@
 #include <map>
 #include <chrono>
 #include<iostream>
+#include <netinet/tcp.h> 
 
 using namespace std;
 
@@ -79,6 +80,13 @@ class Scheduler{
             cerr << "setsockopt Failed " << endl;
             return;
         }
+
+        int enable = 1;
+        if (setsockopt(server_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&enable, sizeof(enable)) < 0) {
+            std::cerr << "Setting setsockopt(TCP_NODELAY) failed" << std::endl;
+        } else {
+            cout << "Setting TCP_NODELAY as enabled." << std::endl;
+}
 
         int bind_status = ::bind(server_socket, (struct sockaddr*)&socket_address, sizeof(sockaddr));
 

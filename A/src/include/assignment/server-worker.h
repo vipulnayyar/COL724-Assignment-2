@@ -27,6 +27,7 @@ class ServerWorker{
     long long processing_start_time;
 
 
+
     long long get_current_timestamp(){
         auto timestamp_now = system_clock::now();               
         auto timestamp_ms = duration_cast<milliseconds>(         
@@ -77,13 +78,13 @@ class ServerWorker{
         }
 
 
-        cout<<"Reading file : "<<request.file_path<<endl;
+        cout<<"\nReading file : "<<request.file_path<<endl;
 
         string line;
         //string packet_to_send = "";
         //int line_count = 0;
 
-        if(request.read_checkpoint_present){
+        if(quantum_size > 0 && request.read_checkpoint_present){
             
             // Check if file has been written after partially processing this read request
             
@@ -100,7 +101,12 @@ class ServerWorker{
         }else {
             request.read_packet_to_send = "";
             request.read_checkpoint_lines_read = 0;
+
+            string c = "[ ";
+            send(request.conn, c.c_str(), c.size(), 0);
         }
+
+        bool start_of_file = true;
         
         while (getline(infile, line)) {
             request.read_packet_to_send += line;
@@ -116,6 +122,15 @@ class ServerWorker{
 
                 string response_message = request.convert_to_json();
 
+                if(!start_of_file){
+
+                    string c = " , ";
+                    send(request.conn, c.c_str(), c.size(), 0);
+
+                }else{
+                    start_of_file = false;
+                }
+
                 cout<<"\n Sending server response to client : \n"<<response_message<<endl;
                 send(request.conn, response_message.c_str(), response_message.size(), 0);
 
@@ -125,7 +140,7 @@ class ServerWorker{
             }
 
             // Creating read checkpoint in request
-            if(get_duration(processing_start_time, get_current_timestamp()) >= quantum_size){
+            if(quantum_size > 0 && get_duration(processing_start_time, get_current_timestamp()) >= quantum_size){
                 request.read_checkpoint_present = true;
                 request.read_chkpt_position = infile.tellg();
 
@@ -147,12 +162,21 @@ class ServerWorker{
 
             string response_message = request.convert_to_json();
 
+            if(!start_of_file){
+
+                string c = " , ";
+                send(request.conn, c.c_str(), c.size(), 0);
+
+            }
 
             cout<<"\n Sending server response to client : \n"<<response_message<<endl;
             send(request.conn, response_message.c_str(), response_message.size(), 0);
 
         }
         
+        string c = " ]";
+        send(request.conn, c.c_str(), c.size(), 0);
+
         close(request.conn);
 
         infile.close();
@@ -196,7 +220,7 @@ class ServerWorker{
 
 
             // Creating write checkpoint in request
-            if(get_duration(processing_start_time, get_current_timestamp()) >= quantum_size){
+            if(quantum_size > 0 && get_duration(processing_start_time, get_current_timestamp()) >= quantum_size){
                 request.write_checkpoint_present = true;
 
                 outfile.close();
@@ -206,6 +230,8 @@ class ServerWorker{
 
 
         }
+
+        cout<<"\n File written to "<<request.file_path<<endl;
 
         
         outfile.close();
@@ -226,6 +252,8 @@ class ServerWorker{
 
         
         close(request.conn);
+
+
 
         RequestResponse dummyreq;
         return dummyreq;

@@ -1,5 +1,4 @@
 // client.cpp
-// Compile: g++ -std=c++17 -pthread client.cpp requestresponse.cpp -o client
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -18,17 +17,19 @@
 #include <thread>
 #include <vector>
 #include <atomic>
-
 #include "rapidjson/document.h"
-#include <assignment/scheduler.h> // use the provided RequestResponse
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
+
+#include <assignment/scheduler.h> 
 #include <filesystem>
+
 namespace fs = std::filesystem;
 
 using namespace std::chrono;
 using namespace std;
 using namespace rapidjson;
 
-//steady_clock::time_point program_start;
 
 long long now_ms() {
     auto now = chrono::system_clock::now();
@@ -92,7 +93,7 @@ string recv_json_line(int sock, int timeout_sec) {
     while (true) {
         ssize_t n = recv(sock, &ch, 1, 0);
         if (n <= 0) break;
-        if (ch == '\n') break;
+        //if (ch == '\n') break;
         line.push_back(ch);
     }
     return line;
@@ -241,10 +242,50 @@ bool do_get_single(int req_id, const string &server_filename, int packet_p, CSVR
     while (true) {
         string reply = recv_json_line(sock, recv_timeout);
         if (reply.empty()) break;
+
+        Document doc;
+        doc.Parse(reply.c_str());
+
+        if (!doc.IsArray()) {
+            cerr << "Not a JSON array!" << endl;
+            break;
+            // return 1;
+        }
+
+        /* for (int i = 0; i < doc.Size(); i++) {
+            const Value& obj = doc[i];
+            cout << "Response received : read packet number " << i << ":\n";
+             
+            
+                const Value& nested = obj["data"];
+
+                StringBuffer buf;
+                Writer<StringBuffer> w(buf);
+                nested.Accept(w);
+
+                resp.convert_from_json(buf.GetString());
+
+
+            
+        } */
+
+        resp.arrival_time = doc[doc.Size()-1]["arrival_time"].GetInt64();
+        resp.service_start_time = doc[doc.Size()-1]["service_start_time"].GetInt64();
+        resp.completion_time = doc[doc.Size()-1]["completion_time"].GetInt64();
+
+
+
+        /* 
+
+         */
         gotAny = true;
-        try { resp.convert_from_json(reply); } catch (...) {}
-        if (!resp.read_data.empty()) accumulated += resp.read_data;
-        if (resp.req_status) break;
+        break;
+
+
+        
+        // try { resp.convert_from_json(reply); } catch (...) {}
+        //if (!resp.read_data.empty()) accumulated += resp.read_data;
+        //if (resp.req_status) break;
     }
 
     string outname = string("client_download_") + server_filename;
@@ -423,9 +464,9 @@ int main(int argc, char** argv) {
     for (auto &t : threads) t.join();
 
     // write CSV
-    ofstream ofs(output_csv);
+    ofstream ofs(output_csv, ios::app);
     if (!ofs) { cerr << "Cannot open output CSV file for writing\n"; return 1; }
-    ofs << "req_id,req_type,file_path,client_send_ms,client_complete_ms,server_arrival,server_start,server_finish,response_time_ms,waiting_time_ms\n";
+//    ofs << "req_id,req_type,file_path,client_send_ms,client_complete_ms,server_arrival,server_start,server_finish,response_time_ms,waiting_time_ms\n";
     {
         lock_guard<mutex> lg(g_results_mtx);
         for (auto &r : g_results) {

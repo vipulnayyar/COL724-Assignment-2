@@ -38,7 +38,7 @@ int main(int argc, char** argv){
         ->required()
         ->check(CLI::Range(1, std::numeric_limits<int>::max()));
 
-    int rr_quantum;
+    int rr_quantum = 0;
     app.add_option("--quantum", rr_quantum, "(MANDATORY for RR) Time quantum for Round-Robin scheduling ")
         ->check(CLI::Range(1, std::numeric_limits<int>::max()));
 

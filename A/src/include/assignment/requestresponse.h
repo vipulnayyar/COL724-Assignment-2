@@ -53,7 +53,9 @@ class RequestResponse{
         doc.Parse(json_str.c_str());
         if (doc.HasParseError() || !doc.IsObject()) {
             cerr << "Failure of JSON parsing"<<endl;
-            exit(1);
+            cerr<<json_str.c_str();
+            //cerr <<"Server exiting";
+            //exit(1);
         }
 
         if (doc.HasMember("req_id")) req_id = doc["req_id"].GetInt();
