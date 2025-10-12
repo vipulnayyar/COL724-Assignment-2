@@ -1,78 +1,120 @@
-#include <sys/socket.h>
-#include <unistd.h>
+#include "server-worker.h"
+#include "file-io.h"
 #include <iostream>
-#include <vector>
-#include <string>
-
-#include "requestresponse.h"
-#include "file-io.h"   // contains read_file() and write_file()
-
+#include <fstream>
+#include <chrono>
+#include <unistd.h>
+#include <sys/socket.h>
 using namespace std;
+using namespace std::chrono;
 
-class ServerWorker {
-public:
-    int connection;
-    RequestResponse request;
-    int packet_size;
+ServerWorker::ServerWorker(int id, int p) {
+    worker_id = id;
+    packet_size = p;
+}
 
-    explicit ServerWorker(int p) : connection(-1), packet_size(p) {}
+void ServerWorker::process_req(RequestResponse req){
+    connection = req.conn;
+    request = req;
 
-    void process_req(int conn, const RequestResponse &req) {
-        connection = conn;
-        request = req;
+    if(request.req_type == "read"){
+        read();
+    }
+    else if(request.req_type=="write"){
+        write();
+    }
+}
 
-        if (request.req_type == "read") {
-            handle_read();
-        } else if (request.req_type == "write") {
-            handle_write();
-        } else {
-            cerr << "[ERROR] Unknown request type: " << request.req_type << endl;
-        }
+void ServerWorker::read() {
+    ifstream infile(request.file_path);
+    if(!infile.is_open()){
+        cerr << "Unable to open file for reading " << request.file_path << endl;
+        return;
     }
 
-private:
-    void handle_read() {
-        int start_index = request.read_line_index;
-        int total_lines = request.read_num_lines;
+    string line, packet_to_send = "";
+    int line_count = 0;
 
-        cout << "[INFO] Handling READ for file: " << request.file_path
-             << " | packet_size=" << packet_size << endl;
+    while (getline(infile, line)) {
+        packet_to_send += line;
+        line_count++;
 
-        // Loop and send file content in chunks
-        while (true) {
-            string data = read_file(request.file_path, start_index, packet_size);
-            if (data.empty()) break; // EOF or no more data
+        if (line_count >= packet_size){
+            request.req_status = true;
+            request.read_data = packet_to_send;
 
-            request.read_data = data;
-            request.req_status = false; // intermediate packet
-            request.arrival_time = 0;   // not needed on server replies
-            request.service_start_time = 0;
-            request.completion_time = 0;
+            auto timestamp_now = system_clock::now();
+            auto timestamp_ms = duration_cast<milliseconds>(
+                timestamp_now.time_since_epoch()
+            ).count();
+            request.completion_time = timestamp_ms;
 
-            string response_message = request.convert_to_json() + "\n";
+            string response_message = request.convert_to_json();
+            cout << "\n Sending server response to client : \n" << response_message << endl;
             send(connection, response_message.c_str(), response_message.size(), 0);
 
-            start_index += packet_size;
-            if ((int)data.size() < packet_size) break; // reached end
+            line_count = 0;
+            packet_to_send = "";
         }
-
-        // Send final completion packet
-        request.req_status = true;
-        request.read_data = "";
-        string final_message = request.convert_to_json() + "\n";
-        send(connection, final_message.c_str(), final_message.size(), 0);
     }
 
-    void handle_write() {
-        cout << "[INFO] Handling WRITE for file: " << request.file_path << endl;
-
-        write_file(request.file_path, request.write_data);
-
-        request.write_data = "";
+    if (packet_to_send.length() > 0){
         request.req_status = true;
+        request.read_data = packet_to_send;
 
-        string response_message = request.convert_to_json() + "\n";
+        auto timestamp_now = system_clock::now();
+        auto timestamp_ms = duration_cast<milliseconds>(
+            timestamp_now.time_since_epoch()
+        ).count();
+        request.completion_time = timestamp_ms;
+
+        string response_message = request.convert_to_json();
+        cout << "\n Sending server response to client : \n" << response_message << endl;
         send(connection, response_message.c_str(), response_message.size(), 0);
     }
-};
+    // Server-side log
+    cout << "================ Server Log ================\n";
+    cout << "Request ID       : " << request.req_id << endl;
+    cout << "Request Type     : " << request.req_type << endl;
+    cout << "File Path        : " << request.file_path << endl;
+    cout << "Arrival Time     : " << request.arrival_time << endl;
+    cout << "Service Start    : " << request.service_start_time << endl;
+    cout << "Completion Time  : " << request.completion_time << endl;
+    cout << "Worker ID        : " << worker_id << endl;
+    cout << "Request Status   : " << (request.req_status ? "success" : "fail") << endl;
+    cout << "===========================================\n";
+
+
+    close(connection);
+}
+
+void ServerWorker::write() {
+    write_file(request.file_path, request.write_data);
+    request.write_data = "";
+    request.req_status = true;
+
+    auto timestamp_now = system_clock::now();
+    auto timestamp_ms = duration_cast<milliseconds>(
+        timestamp_now.time_since_epoch()
+    ).count();
+    request.completion_time = timestamp_ms;
+
+    string response_message = request.convert_to_json();
+    cout << "\n Sending server response to client : \n" << response_message << endl;
+    send(connection, response_message.c_str(), response_message.size(), 0);
+    // Server-side log
+    cout << "================ Server Log ================\n";
+    cout << "Request ID       : " << request.req_id << endl;
+    cout << "Request Type     : " << request.req_type << endl;
+    cout << "File Path        : " << request.file_path << endl;
+    cout << "Arrival Time     : " << request.arrival_time << endl;
+    cout << "Service Start    : " << request.service_start_time << endl;
+    cout << "Completion Time  : " << request.completion_time << endl;
+    cout << "Worker ID        : " << worker_id << endl;
+    cout << "Request Status   : " << (request.req_status ? "success" : "fail") << endl;
+    cout << "===========================================\n";
+
+
+    close(connection);
+}
 
