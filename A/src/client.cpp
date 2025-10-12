@@ -20,7 +20,7 @@
 #include <atomic>
 
 #include "rapidjson/document.h"
-#include "scheduler.h" // use the provided RequestResponse
+#include <assignment/scheduler.h> // use the provided RequestResponse
 using namespace std::chrono;
 using namespace std;
 using namespace rapidjson;
@@ -130,7 +130,7 @@ bool do_put_single(int req_id, const string &localpath, int packet_p, CSVRow &ou
     req.req_type = "write";
     req.file_path = localpath;
     req.read_line_index = 0;
-    req.read_num_lines = 0;
+    req.write_num_lines = 0;
     req.req_status = false;
 
     try {
@@ -209,7 +209,7 @@ bool do_get_single(int req_id, const string &server_filename, int packet_p, CSVR
     req.req_type = "read";
     req.file_path = server_filename;
     req.read_line_index = 1;
-    req.read_num_lines = packet_p;
+    req.write_num_lines = packet_p;
     req.write_data = "";
     req.req_status = false;
 
@@ -403,7 +403,7 @@ int main(int argc, char** argv) {
         if (commands[0].first == "PUT") {
             tmp.req_type = "write"; tmp.file_path = commands[0].second;
             try { tmp.write_data = read_file_to_string(commands[0].second); } catch(...) { tmp.write_data=""; }
-        } else { tmp.req_type="read"; tmp.file_path=commands[0].second; tmp.read_line_index=1; tmp.read_num_lines=packet_p; }
+        } else { tmp.req_type="read"; tmp.file_path=commands[0].second; tmp.read_line_index=1; tmp.write_num_lines=packet_p; }
         cout << tmp.convert_to_json() << "\n";
         return 0;
     }
