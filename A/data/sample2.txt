@@ -1,0 +1,4 @@
+Line 1: Welcome to the second test file.
+Line 2: This file is for PUT and GET operations.
+Line 3: Checking multiple file transfers.
+Line 4: End of sample2.txt

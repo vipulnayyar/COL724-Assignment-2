@@ -1,0 +1,2 @@
+req_id,req_type,file_path,client_send_ms,client_complete_ms,server_arrival,server_start,server_finish,response_time_ms,waiting_time_ms
+1,read,sample1.txt,1760253588253,0,,,,0,0

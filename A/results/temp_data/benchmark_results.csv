@@ -1,0 +1,2 @@
+sched_policy,server_threads,client_threads,packet_size,run_time_sec
+fcfs,1,1,1,8.01
