@@ -21,9 +21,10 @@ CONFIG_FILE = BASE_DIR / "../conf/config.json"
 
 # ---------------- Benchmark parameters ----------------
 SCHED_POLICIES = ["fcfs", "sjf"]
-SERVER_THREADS_LIST = [1, 3, 5, 7, 9]
-CLIENT_THREADS_LIST = [1, 3, 5, 7, 9]
-PACKET_SIZES = [3]
+SERVER_THREADS_LIST = [1, 3, 5]
+CLIENT_THREADS_LIST = [1, 3, 5]
+PACKET_SIZES = [1,3, 5]
+
 #NUM_RUNS = 1  # number of repetitions per configuration
 
 WRITE_DURATION = 2  # sec
@@ -108,7 +109,7 @@ def run_server(sched_policy, server_threads, packet_size):
         "--file", str(SERVER_DATA_DIR),
         "--p", str(packet_size),
         "--server-threads", str(server_threads),
-        "--quantum", str(50)
+        "--quantum", str(100)
     ])
     return server_proc
 

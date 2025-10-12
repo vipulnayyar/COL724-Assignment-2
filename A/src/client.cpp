@@ -475,7 +475,7 @@ int main(int argc, char** argv) {
         lock_guard<mutex> lg(g_results_mtx);
         for (auto &r : g_results) {
             ofs << r.req_id << "," << r.req_type << "," << r.file_path << ",";
-            ofs << sched_policy <<","<<server_threads<<","<<client_threads<<","<<packet_p;
+            ofs << sched_policy <<","<<server_threads<<","<<client_threads<<","<<packet_p<<",";
             //ofs << r.client_send_ms << "," << r.client_complete_ms << ",";
             if (r.server_arrival != 0) ofs << r.server_arrival << ","; else ofs << ",";
             if (r.server_start != 0) ofs << r.server_start << ","; else ofs << ",";

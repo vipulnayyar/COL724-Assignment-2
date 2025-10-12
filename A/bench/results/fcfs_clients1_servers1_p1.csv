@@ -1,0 +1,6 @@
+1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample1.txt,fcfs,1,1,1,1760282054589,1760282054589,1760282054589,
+1,read,sample1.txt,fcfs,1,1,1,1760282054594,1760282054594,1760282057605,
+1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample2.txt,fcfs,1,1,1,1760282058307,1760282058307,1760282058307,
+1,read,sample2.txt,fcfs,1,1,1,1760282058318,1760282058318,1760282060774,
+1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample3.txt,fcfs,1,1,1,1760282061394,1760282061394,1760282061395,
+1,read,sample3.txt,fcfs,1,1,1,1760282061415,1760282061415,1760282063621,

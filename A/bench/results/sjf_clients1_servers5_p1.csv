@@ -1,0 +1,6 @@
+1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample1.txt,sjf,5,1,1,1760282595130,1760282595130,1760282595131,
+1,read,sample1.txt,sjf,5,1,1,1760282595136,1760282595136,1760282598514,
+1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample2.txt,sjf,5,1,1,1760282599233,1760282599233,1760282599234,
+1,read,sample2.txt,sjf,5,1,1,1760282599255,1760282599255,1760282602186,
+1,write,/Users/vipul/dev/COL724-Assignment-2/A/bench/client_files/sample3.txt,sjf,5,1,1,1760282602820,1760282602820,1760282602820,
+1,read,sample3.txt,sjf,5,1,1,1760282602827,1760282602827,1760282604977,
