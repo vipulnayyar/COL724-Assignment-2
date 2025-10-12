@@ -73,6 +73,9 @@ int main(int argc, char** argv){
     }
 
 
+    if (sched_policy != "rr")
+        rr_quantum = 0;
+
     cout<<endl<<"SERVER CONFIG : "<<endl;
     cout<<"SERVER_IP : "<< SERVER_IP<<endl;
     cout<<"SERVER_PORT : "<<SERVER_PORT<<endl;

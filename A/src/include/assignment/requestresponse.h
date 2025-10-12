@@ -42,10 +42,7 @@ class RequestResponse{
     bool write_checkpoint_present = false;
     int write_checkpoint_bytes_written;
 
-    /* void append_line_data(string line){
-        read_data.push_back(line);
-    } */
-
+   
 
     void convert_from_json(const string& json_str){
 

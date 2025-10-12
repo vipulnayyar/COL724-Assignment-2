@@ -131,7 +131,7 @@ class ServerWorker{
                     start_of_file = false;
                 }
 
-                cout<<"\n Sending server response to client : \n"<<response_message<<endl;
+                //cout<<"\n Sending server response to client : \n"<<response_message<<endl;
                 send(request.conn, response_message.c_str(), response_message.size(), 0);
 
                 request.read_checkpoint_lines_read = 0;

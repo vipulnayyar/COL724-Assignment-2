@@ -248,6 +248,7 @@ bool do_get_single(int req_id, const string &server_filename, int packet_p, CSVR
 
         if (!doc.IsArray()) {
             cerr << "Not a JSON array!" << endl;
+            cerr<<"\n"<<reply<<endl;
             break;
             // return 1;
         }
@@ -322,7 +323,8 @@ bool do_get_single(int req_id, const string &server_filename, int packet_p, CSVR
         out.waiting_time_ms = 0;
 
     close(sock);
-    return gotAny;
+    //return gotAny;
+    return true;
 }
 
 // ------------------ worker thread ------------------
@@ -371,8 +373,8 @@ void print_usage(const char *p) {
 
 int main(int argc, char** argv) {
     //cout << "Client main:"<< endl;
-    string config_file, mode="single", op, filearg, namearg, commands_file;
-    int packet_p=1, client_threads=-1, iterations=1;
+    string config_file, mode="single", op, filearg, namearg, commands_file, sched_policy;
+    int packet_p=1, client_threads=-1, iterations=1, server_threads=-1;
     //string output_csv="client_results.csv";
     string output_csv="results/client_results.csv";
 
@@ -389,6 +391,8 @@ int main(int argc, char** argv) {
         else if (a=="--commands" && i+1<argc) commands_file = argv[++i];
         else if (a=="--p" && i+1<argc) packet_p = stoi(argv[++i]);
         else if (a=="--client-threads" && i+1<argc) client_threads = stoi(argv[++i]);
+        else if (a=="--server-threads" && i+1<argc) server_threads = stoi(argv[++i]);
+        else if (a=="--sched-policy" && i+1<argc) sched_policy = argv[++i];
         else if (a=="--iterations" && i+1<argc) iterations = stoi(argv[++i]);
         else if (a=="--output" && i+1<argc) output_csv = argv[++i];
         else if (a=="--dry-run") dry_run = true;
@@ -471,11 +475,13 @@ int main(int argc, char** argv) {
         lock_guard<mutex> lg(g_results_mtx);
         for (auto &r : g_results) {
             ofs << r.req_id << "," << r.req_type << "," << r.file_path << ",";
-            ofs << r.client_send_ms << "," << r.client_complete_ms << ",";
+            ofs << sched_policy <<","<<server_threads<<","<<client_threads<<","<<packet_p;
+            //ofs << r.client_send_ms << "," << r.client_complete_ms << ",";
             if (r.server_arrival != 0) ofs << r.server_arrival << ","; else ofs << ",";
             if (r.server_start != 0) ofs << r.server_start << ","; else ofs << ",";
             if (r.server_finish != 0) ofs << r.server_finish << ","; else ofs << ",";
-            ofs << r.response_time_ms << "," << r.waiting_time_ms << "\n";
+            //ofs << r.response_time_ms << "," << r.waiting_time_ms << "\n";
+            ofs<<"\n";
         }
     }
     ofs.close();

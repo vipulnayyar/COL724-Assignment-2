@@ -111,8 +111,8 @@ class Scheduler{
             int conn = accept(server_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
             
 
-            char msg_buffer[1000] = {0};
-            auto bytesRead = read(conn, msg_buffer, 1000);
+            char msg_buffer[10000] = {0};
+            auto bytesRead = read(conn, msg_buffer, 10000);
             //cout << "The message was: " << msg_buffer<<endl;
 
            
