@@ -21,6 +21,9 @@
 
 #include "rapidjson/document.h"
 #include <assignment/scheduler.h> // use the provided RequestResponse
+#include <filesystem>
+namespace fs = std::filesystem;
+
 using namespace std::chrono;
 using namespace std;
 using namespace rapidjson;
@@ -123,12 +126,16 @@ string read_file_to_string(const string &path) {
 }
 
 // ------------------ request processing ------------------
-bool do_put_single(int req_id, const string &localpath, int packet_p, CSVRow &out, int recv_timeout=10) {
+bool do_put_single(int req_id, const string &localpath, const string &target_name, int packet_p, CSVRow &out, int recv_timeout=10) {
+    cout << "[do_put_single] Local path  : " << localpath << endl;
+    cout << "[do_put_single] Server path : " << target_name << endl;
     //cout << "Client do_put_single:"<< endl;
     RequestResponse req;
     req.req_id = req_id;
     req.req_type = "write";
-    req.file_path = localpath;
+    //req.file_path = target_name;
+    req.file_path = fs::path(target_name).filename().string();
+    cout << "[do_put_single] passed Server path : " << req.file_path << endl;
     req.read_line_index = 0;
     req.write_num_lines = 0;
     req.req_status = false;
@@ -302,7 +309,7 @@ void worker_thread(int packet_p, int iterations) {
             r.response_time_ms = r.waiting_time_ms = 0;
 
             bool ok = false;
-            if (op == "PUT") ok = do_put_single(req_id, arg, packet_p, r);
+            if (op == "PUT") ok = do_put_single(req_id, arg, arg, packet_p, r);
             else ok = do_get_single(req_id, arg, packet_p, r);
 
             { lock_guard<mutex> lg(g_results_mtx); g_results.push_back(r); }
