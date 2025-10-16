@@ -157,6 +157,8 @@ int main(int argc, char** argv) {
         }
     }
 
+    cout<<"Connecting to server "<<SERVER_IP << " at port "<< SERVER_PORT << endl;
+
     // Create socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {

@@ -35,21 +35,21 @@ int main(int argc, char** argv){
     cout<<"\n LB_IP "<<LB_IP<<endl;
     cout<<"\n LB_PORT "<<LB_PORT<<endl;
 
-    cout<<"\n SERVER1_IP"<<SERVER1_IP<<endl;
-    cout<<"\n SERVER1_PORT"<<SERVER1_PORT<<endl;
+    cout<<"\n SERVER1_IP "<<SERVER1_IP<<endl;
+    cout<<"\n SERVER1_PORT "<<SERVER1_PORT<<endl;
     
-    cout<<"\n SERVER2_IP"<<SERVER2_IP<<endl;
-    cout<<"\n SERVER2_PORT"<<SERVER2_PORT<<endl;
+    cout<<"\n SERVER2_IP "<<SERVER2_IP<<endl;
+    cout<<"\n SERVER2_PORT "<<SERVER2_PORT<<endl;
 
-    cout<<"\n SERVER3_IP"<<SERVER3_IP<<endl;
-    cout<<"\n SERVER3_PORT"<<SERVER3_PORT<<endl;
+    cout<<"\n SERVER3_IP "<<SERVER3_IP<<endl;
+    cout<<"\n SERVER3_PORT "<<SERVER3_PORT<<endl;
 
-    cout<<"\n SERVER4_IP"<<SERVER4_IP<<endl;
-    cout<<"\n SERVER4_PORT"<<SERVER4_PORT<<endl;
+    cout<<"\n SERVER4_IP "<<SERVER4_IP<<endl;
+    cout<<"\n SERVER4_PORT "<<SERVER4_PORT<<endl;
     
 
     cout<<endl <<"Starting LB Scheduler";
-    LBScheduler load_balancer = LBScheduler(SERVER1_IP, SERVER1_PORT, SERVER2_IP, SERVER2_PORT, SERVER3_IP, SERVER3_PORT, SERVER4_IP, SERVER4_PORT, LB_IP, LB_PORT, "rr");
+    LBScheduler load_balancer = LBScheduler(SERVER1_IP, SERVER1_PORT, SERVER2_IP, SERVER2_PORT, SERVER3_IP, SERVER3_PORT, SERVER4_IP, SERVER4_PORT, LB_IP, LB_PORT, "wrr");
 
     load_balancer.server_loop();
     

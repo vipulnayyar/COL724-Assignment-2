@@ -34,11 +34,19 @@ class LBScheduler{
 
     int lb_downstream_socket = -1;
 
-    string sched_policy = "rr";
+    string sched_policy = "wrr";
 
     vector<thread> connection_threads;
 
     vector<thread> healthcheck_threads;
+
+    // Adaptive Weighted Round Robin
+    int server_weight[4] = {1, 1, 1, 1};
+
+    // Adaptive Least Connections
+    int least_connections[4] = {0, 0, 0, 0};
+
+    int healthcheck_response_time_score[4] = {0, 0, 0, 0};
 
 
     long long get_current_timestamp(){
@@ -51,9 +59,16 @@ class LBScheduler{
 
     }
 
-    LBScheduler(string srv1_ip, int srv1_port, string srv2_ip, int srv2_port, string srv3_ip, int srv3_port, string srv4_ip, int srv4_port, string load_balancer_ip, int load_balancer_port, string sched_policy){
+    LBScheduler(string srv1_ip, int srv1_port, string srv2_ip, int srv2_port, string srv3_ip, int srv3_port, string srv4_ip, int srv4_port, string load_balancer_ip, int load_balancer_port, string lb_sched_policy){
 
-        lb_downstream_socket = create_downstream_socket(lb_ip, lb_port);
+        lb_downstream_socket = create_downstream_socket(load_balancer_ip, load_balancer_port);
+
+        if(lb_downstream_socket < 0){
+            cerr << "***Downstream socket creation failed***"<<endl;
+            exit(1);
+        }
+
+        cout<<"Downstream socket created successfully"<<endl;
 
         server1_ip = srv1_ip;
         server1_port = srv1_port;
@@ -67,7 +82,7 @@ class LBScheduler{
         lb_ip = load_balancer_ip;
         lb_port = load_balancer_port;
 
-        sched_policy = "rr";
+        sched_policy = lb_sched_policy;
 
 
         healthcheck_threads.emplace_back(&LBScheduler::handle_healthcheck_requests, this, server1_ip, server1_port);
@@ -146,43 +161,79 @@ class LBScheduler{
         }
 
         int bind_status = ::bind(downstream_socket, (struct sockaddr*)&socket_address, sizeof(sockaddr));
+        if(bind_status < 0){
+            cerr << "***Bind Failed for downstream socket***"<<endl;
+            return -1;
+        }
 
         cout<<"Bind status = "<<bind_status <<endl;
 
         int listen_status = listen(downstream_socket, 10);
+        if(listen_status < 0){
+            cerr << "***Listen Failed for downstream socket***"<<endl;
+            return -1;
+        }
 
         cout<<"Listen status = "<<listen_status <<endl;
 
         return downstream_socket;
     }
 
-    pair<string, int> schedule_unweighted_round_robin_server(){
-        static int current_server_index = 0;
-        current_server_index = (current_server_index) % 4;
-        switch(current_server_index){
-        case 0:
+    pair<string, int> schedule_weighted_round_robin_server(){
+        static int round_robin_index = 0;
+        round_robin_index++;
+
+        int current_server_index = round_robin_index % (server_weight[0] + server_weight[1] + server_weight[2] + server_weight[3]);
+
+        if(current_server_index < server_weight[0]){
             return {server1_ip, server1_port};
-        case 1:
+        }else if(current_server_index < server_weight[0] + server_weight[1]){
             return {server2_ip, server2_port};
-        case 2:
+        }else if(current_server_index < server_weight[0] + server_weight[1] + server_weight[2]){
             return {server3_ip, server3_port};
-        case 3:
+        }else{
             return {server4_ip, server4_port};
-        default:
-            return {server1_ip, server1_port};
-       
-        };
+        }   
 
     }
 
+
+    pair<string, int> schedule_weighted_least_connections_server(){
+
+        int min_connections = least_connections[0];
+        int min_connections_index = 0;
+
+        for(int i = 1; i < 4; i++){
+            if(least_connections[i] < min_connections){
+                min_connections = least_connections[i];
+                min_connections_index = i;
+            }
+        }
+
+        if (min_connections_index == 0){
+            return {server1_ip, server1_port};
+        }else if(min_connections_index == 1){
+            return {server2_ip, server2_port};
+        }else if(min_connections_index == 2){
+            return {server3_ip, server3_port};
+        }else{
+            return {server4_ip, server4_port};
+        }
+    }
+
     int schedule_upstream_socket(){
-        if(sched_policy == "rr"){
-            pair<string, int> server_info =  schedule_unweighted_round_robin_server();
+        if(sched_policy == "wrr"){
+            pair<string, int> server_info =  schedule_weighted_round_robin_server();
+
+            return create_upstream_socket(server_info.first, server_info.second);
+
+        }else if(sched_policy == "lc"){
+
+            pair<string, int> server_info =  schedule_weighted_least_connections_server();
 
             return create_upstream_socket(server_info.first, server_info.second);
 
         }else{
-
             return create_upstream_socket(server1_ip, server1_port);
         }
     }
@@ -190,7 +241,7 @@ class LBScheduler{
     int create_upstream_socket(string ip, int port){
 
 
-        cout<<"\nCreating upstream socket to server "<<ip << " at port "<< port <<endl;
+        //cout<<"\nCreating upstream socket to server "<<ip << " at port "<< port <<endl;
 
         int upstream_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -207,10 +258,10 @@ class LBScheduler{
         int connect_status = connect(upstream_socket, (struct sockaddr*)&socket_address, sizeof(sockaddr));
         if(connect_status < 0){
             cerr << "Upstream Connection Failed"<<endl;
-            exit(1);
+            return -1;
         }
 
-        cout<<"Upstream Connection from LB to Server "<<ip << " at port "<< port <<" Successful"<<endl;
+        //cout<<"Upstream Connection from LB to Server "<<ip << " at port "<< port <<" Successful"<<endl;
 
         return upstream_socket;
     }
@@ -218,6 +269,10 @@ class LBScheduler{
     int get_downstream_connection(){
         
         sockaddr_in socket_address;
+        socket_address.sin_family = AF_INET;
+        socket_address.sin_addr.s_addr = inet_addr(lb_ip.c_str());
+        socket_address.sin_port = htons(lb_port);
+
         int addrlen = sizeof(socket_address);
         int conn = accept(lb_downstream_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen); 
 
@@ -227,7 +282,7 @@ class LBScheduler{
 
     void server_loop(){
 
-        cout<<"Starting Load Balancer on "<<LB_IP << " at port "<< LB_PORT<<endl;
+        cout<<"Starting Load Balancer on "<<lb_ip << " at port "<< lb_port<<endl;
        
         // connection loop
         while(1){
@@ -293,7 +348,7 @@ class LBScheduler{
             long long sent_timestamp = get_current_timestamp();
             // pad request to 1024 KB
 
-            cout<<"Sending healthcheck request to server "<<server_ip << " at port "<< server_port <<endl;
+            //cout<<"Sending healthcheck request to server "<<server_ip << " at port "<< server_port <<endl;
             send(upstream_server_socket, healthcheck_request_json.c_str(), healthcheck_request_json.size(), 0);
             
 
@@ -314,8 +369,8 @@ class LBScheduler{
 
             ServerResponse healthcheck_response;
             healthcheck_response.convert_from_json(buffer);
-            cout<<"Healthcheck response received from server "<<server_ip << " at port "<< server_port <<endl;
-            cout<<healthcheck_response.convert_to_json()<<endl;
+            //cout<<"Healthcheck response received from server "<<server_ip << " at port "<< server_port <<endl;
+            //cout<<healthcheck_response.convert_to_json()<<endl;
 
             if(healthcheck_response.response_status == false){
                 cerr << "Healthcheck Failed"<<endl;
