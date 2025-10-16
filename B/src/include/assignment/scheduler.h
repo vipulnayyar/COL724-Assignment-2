@@ -128,6 +128,12 @@ class Scheduler{
 
         cout<<"\nStarting new Worker thread with id : "<<id << endl;
         ServerWorker server_worker(id, packet_size, quantum_size);
+
+        ofstream metrics_file("server_worker_log.txt."+to_string(id));
+        if(!metrics_file.is_open()){
+            cerr << "Unable to open log file"<<endl;
+            exit(1);
+        }
         
 
 
@@ -136,14 +142,10 @@ class Scheduler{
             cout<<"\nWorker "<<id<<" trying to pop request from queue"<<endl;
             ServerTask task = pop();
 
-            
-
-            task.internal_service_start_time = get_current_timestamp();
-
-            
+            if(task.internal_service_start_time == 0)
+                task.internal_service_start_time = get_current_timestamp();            
             
             cout<<"Request picked from queue by worker "<< id;
-
 
             // If request header is not read
             if(task.req_id == ""){
@@ -173,6 +175,11 @@ class Scheduler{
 
             }
 
+            task.internal_completion_time = get_current_timestamp();
+
+            metrics_file<< get_current_timestamp() <<","<<task.req_id<<","<<task.req_type<<","<<task.file_path<<","<<task.internal_arrival_time<<","<<task.internal_service_start_time<<","<<task.internal_completion_time<<endl;
+
+
             /* if(processed_task.req_type=="write"){
                 mutex_file_lines.lock();
                 file_lines[processed_task.file_path] = {processed_task.write_num_lines, get_current_timestamp()};
@@ -180,6 +187,8 @@ class Scheduler{
             } */
 
         }
+
+        metrics_file.close();
 
     }
 

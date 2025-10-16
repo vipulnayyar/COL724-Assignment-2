@@ -60,6 +60,24 @@ class ServerResponse{
         doc.Accept(writer);
         return buffer.GetString();
     }
+
+    bool convert_from_json(const string& json_str){
+        Document doc;
+        doc.Parse(json_str.c_str());
+        if(doc.HasParseError() || !doc.IsObject()){
+            cerr << "Error parsing JSON: Invalid JSON format or not an object" << endl;
+            return false;
+        }
+
+        if(doc.HasMember("req_id")) req_id = doc["req_id"].GetString();
+        if(doc.HasMember("req_type")) req_type = doc["req_type"].GetString();
+        if(doc.HasMember("file_path")) file_path = doc["file_path"].GetString();
+        if(doc.HasMember("response_status")) response_status = doc["response_status"].GetBool();
+
+        return true;
+    }
+
+
 };
 
 

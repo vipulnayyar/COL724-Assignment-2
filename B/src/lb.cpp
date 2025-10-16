@@ -49,14 +49,9 @@ int main(int argc, char** argv){
     
 
     cout<<endl <<"Starting LB Scheduler";
-    LBScheduler lb = LBScheduler(SERVER1_IP, SERVER1_PORT, SERVER2_IP, SERVER2_PORT, SERVER3_IP, SERVER3_PORT, SERVER4_IP, SERVER4_PORT, LB_IP, LB_PORT);
+    LBScheduler load_balancer = LBScheduler(SERVER1_IP, SERVER1_PORT, SERVER2_IP, SERVER2_PORT, SERVER3_IP, SERVER3_PORT, SERVER4_IP, SERVER4_PORT, LB_IP, LB_PORT, "rr");
 
-    lb.server_loop();
-    
-
-
-
-
+    load_balancer.server_loop();
     
 
     cout<<endl<<"Exiting LB application";

@@ -1,4 +1,4 @@
-# include <assignment/requestresponse.h>
+#include <assignment/requestresponse.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -7,10 +7,13 @@
 #include <map>
 #include <thread>
 #include <chrono>
-#include <thread>
 #include <netinet/in.h>
 #include <netinet/tcp.h> 
 #include <arpa/inet.h>
+#include <fstream>
+#include <vector>
+using namespace std;
+using namespace std::chrono;
 
 
 
@@ -26,13 +29,29 @@ class LBScheduler{
     string server4_ip = "";
     int server4_port = -1;
 
+    string lb_ip = "";
+    int lb_port = -1;
+
     int lb_downstream_socket = -1;
+
+    string sched_policy = "rr";
 
     vector<thread> connection_threads;
 
+    vector<thread> healthcheck_threads;
 
 
-    LBScheduler(string srv1_ip, int srv1_port, string srv2_ip, int srv2_port, string srv3_ip, int srv3_port, string srv4_ip, int srv4_port, string lb_ip, int lb_port){
+    long long get_current_timestamp(){
+        auto timestamp_now = system_clock::now();               
+        auto timestamp_ms = duration_cast<milliseconds>(         
+            timestamp_now.time_since_epoch()
+        ).count();
+
+        return timestamp_ms;
+
+    }
+
+    LBScheduler(string srv1_ip, int srv1_port, string srv2_ip, int srv2_port, string srv3_ip, int srv3_port, string srv4_ip, int srv4_port, string load_balancer_ip, int load_balancer_port, string sched_policy){
 
         lb_downstream_socket = create_downstream_socket(lb_ip, lb_port);
 
@@ -44,6 +63,18 @@ class LBScheduler{
         server3_port = srv3_port;
         server4_ip = srv4_ip;
         server4_port = srv4_port;
+
+        lb_ip = load_balancer_ip;
+        lb_port = load_balancer_port;
+
+        sched_policy = "rr";
+
+
+        healthcheck_threads.emplace_back(&LBScheduler::handle_healthcheck_requests, this, server1_ip, server1_port);
+        healthcheck_threads.emplace_back(&LBScheduler::handle_healthcheck_requests, this, server2_ip, server2_port);
+        healthcheck_threads.emplace_back(&LBScheduler::handle_healthcheck_requests, this, server3_ip, server3_port);
+        healthcheck_threads.emplace_back(&LBScheduler::handle_healthcheck_requests, this, server4_ip, server4_port);
+
     }
 
 
@@ -58,32 +89,28 @@ class LBScheduler{
             int read_bytes = read(source_connection, buffer, 1024);
             if(read_bytes < 0){
                 cerr << "Error reading from source connection"<<endl;
-                close(source_connection);
-                close(destination_connection);
-                return;
+                break;
             }else if(read_bytes == 0){
                 cerr << "Connection closed by source connection"<<endl;
-                close(source_connection);
-                close(destination_connection);
-                return;
+                break;
             }
 
             int send_bytes = send(destination_connection, buffer, read_bytes, 0);
             if(send_bytes < 0){
                 cerr << "Error sending to destination connection"<<endl;
-                close(source_connection);
-                close(destination_connection);
-                return;
+                break;
             }else if(send_bytes == 0){
                 cerr << "Connection closed by destination connection"<<endl;
-                close(source_connection);
-                close(destination_connection);
-                return;
+                break;
             }
             else{
                 cout<<"Data sent to destination connection"<<endl;
             }
         }
+
+
+        close(source_connection);
+        close(destination_connection);
 
     }
 
@@ -129,11 +156,38 @@ class LBScheduler{
         return downstream_socket;
     }
 
-    int create_upstream_socket(){
+    pair<string, int> schedule_unweighted_round_robin_server(){
+        static int current_server_index = 0;
+        current_server_index = (current_server_index) % 4;
+        switch(current_server_index){
+        case 0:
+            return {server1_ip, server1_port};
+        case 1:
+            return {server2_ip, server2_port};
+        case 2:
+            return {server3_ip, server3_port};
+        case 3:
+            return {server4_ip, server4_port};
+        default:
+            return {server1_ip, server1_port};
+       
+        };
 
-        // Scheduling
-        string ip = server1_ip;
-        int port = server1_port;
+    }
+
+    int schedule_upstream_socket(){
+        if(sched_policy == "rr"){
+            pair<string, int> server_info =  schedule_unweighted_round_robin_server();
+
+            return create_upstream_socket(server_info.first, server_info.second);
+
+        }else{
+
+            return create_upstream_socket(server1_ip, server1_port);
+        }
+    }
+
+    int create_upstream_socket(string ip, int port){
 
 
         cout<<"\nCreating upstream socket to server "<<ip << " at port "<< port <<endl;
@@ -191,7 +245,7 @@ class LBScheduler{
 
             // Scheduling
             
-            int upstream_socket = create_upstream_socket();
+            int upstream_socket = schedule_upstream_socket();
             
             // start thread to handle connection traffic
             connection_threads.emplace_back(&LBScheduler::handle_connection_traffic, this, downstream_connection, upstream_socket);
@@ -213,11 +267,17 @@ class LBScheduler{
 
 
 
-    /* void handle_healthcheck_requests(server_ip, server_port){
+    void handle_healthcheck_requests(string server_ip, int server_port){
+
+        ofstream healthcheck_metrics_file("healthcheck_metrics.txt." + server_ip + ":" + to_string(server_port));
+        if(!healthcheck_metrics_file.is_open()){
+            cerr << "Unable to open healthcheck metrics file"<<endl;
+            exit(1);
+        }
 
         while(1){
             sleep(1);
-            int upstream_server_socket = get_upstream_socket(server_ip, server_port);
+            int upstream_server_socket = create_upstream_socket(server_ip, server_port);
            
             if(upstream_server_socket < 0){
                 cerr << "Connection Failed"<<endl;
@@ -230,26 +290,51 @@ class LBScheduler{
             healthcheck_request.file_path = "";
             string healthcheck_request_json = healthcheck_request.convert_to_json();
 
+            long long sent_timestamp = get_current_timestamp();
             // pad request to 1024 KB
+
+            cout<<"Sending healthcheck request to server "<<server_ip << " at port "<< server_port <<endl;
             send(upstream_server_socket, healthcheck_request_json.c_str(), healthcheck_request_json.size(), 0);
             
 
             char buffer[1024] = {0};
-            recv(upstream_server_socket, buffer, 1024, 0);
+            int read_bytes = recv(upstream_server_socket, buffer, 1024, 0);
+            if(read_bytes < 0){
+                cerr << "Error receiving healthcheck response"<<endl;
+                continue;
+            }else if(read_bytes == 0){
+                cerr << "Connection closed by server"<<endl;
+                continue;
+            }
+
+            //cout<<"Healthcheck response read bytes: "<<read_bytes<<endl;
+
+            //cout<<"Healthcheck response buffer: "<<buffer<<endl;
+            long long received_timestamp = get_current_timestamp();
+
             ServerResponse healthcheck_response;
             healthcheck_response.convert_from_json(buffer);
+            cout<<"Healthcheck response received from server "<<server_ip << " at port "<< server_port <<endl;
+            cout<<healthcheck_response.convert_to_json()<<endl;
+
             if(healthcheck_response.response_status == false){
                 cerr << "Healthcheck Failed"<<endl;
                 
             }
+
+            long long response_time_ms = received_timestamp - sent_timestamp;
+
+            healthcheck_metrics_file<< get_current_timestamp() <<","<< server_ip<<"," << server_port <<"," <<healthcheck_response.response_status<<","<< response_time_ms <<endl;
 
             close(upstream_server_socket);
 
 
         }
 
+        healthcheck_metrics_file.close();
+
     }
- */
+ 
 
 
 

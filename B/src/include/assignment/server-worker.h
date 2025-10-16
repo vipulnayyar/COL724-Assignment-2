@@ -56,11 +56,30 @@ class ServerWorker{
         else if(task.req_type=="write"){
 
             return write(task);
+        }else if(task.req_type == "health_check"){
+            return health_check(task);
         }
 
         ServerTask dummytask(0, "");
         return dummytask;
 
+    }
+
+    ServerTask health_check(ServerTask task){
+        
+        ServerResponse healthcheck_response;
+        healthcheck_response.req_id = task.req_id;
+        healthcheck_response.req_type = task.req_type;
+        healthcheck_response.file_path = task.file_path;
+        healthcheck_response.response_status = true;
+
+        string healthcheck_response_json = healthcheck_response.convert_to_json();
+        packet_send(task.internal_conn, healthcheck_response_json.c_str());
+
+        close(task.internal_conn);
+        task.task_status = "completed";
+
+        return task;
     }
 
     ServerTask read(ServerTask task){
@@ -135,7 +154,6 @@ class ServerWorker{
 
         if (task.internal_read_packet_to_send.length() > 0){
 
-            task.internal_completion_time = get_current_timestamp();
 
             packet_send(task.internal_conn, task.internal_read_packet_to_send);
 
@@ -200,7 +218,6 @@ class ServerWorker{
         outfile.close();
         
         
-        task.internal_completion_time = get_current_timestamp();
         
         close(task.internal_conn);
 
