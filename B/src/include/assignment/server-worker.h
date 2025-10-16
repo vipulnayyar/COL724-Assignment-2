@@ -17,11 +17,11 @@ class ServerWorker{
 
     public:
 
-    ServerTask task;
+    //ServerTask task;
     int lines_per_packet;
     int worker_id;
     int quantum_size;
-    int SEND_PACKET_SIZE = 20;
+    int SEND_PACKET_SIZE = 1024;
 
     long long processing_start_time;
 
@@ -41,34 +41,33 @@ class ServerWorker{
     }
 
     ServerWorker(int id, int lp, int q_size) : 
-        task(-1, ""),
         worker_id(id),
         lines_per_packet(lp),
         quantum_size(q_size) {
     }
 
-    ServerTask process_req(ServerTask srv_task){
-        task = srv_task;
+    ServerTask process_req(ServerTask task){
+        //task = srv_task;
         processing_start_time = get_current_timestamp();
 
         if(task.req_type == "read"){
-            return read();
+            return read(task);
         }
-        // else if(task.req_type=="write"){
+        else if(task.req_type=="write"){
 
-        //     return write();
-        // }
+            return write(task);
+        }
 
         ServerTask dummytask(0, "");
         return dummytask;
 
     }
 
-    ServerTask read(){
+    ServerTask read(ServerTask task){
 
         string file_path = task.internal_data_store_dir + "/" + task.file_path;
 
-        task.display();
+        //task.display();
 
         ifstream infile(file_path);
 
@@ -111,7 +110,7 @@ class ServerWorker{
             if(task.internal_read_packet_to_send.length() == SEND_PACKET_SIZE
                 || task.internal_read_checkpoint_lines_read == lines_per_packet){
 
-                packet_send(task.internal_read_packet_to_send);
+                packet_send(task.internal_conn, task.internal_read_packet_to_send);
 
                 task.internal_read_packet_to_send = "";
                 task.internal_read_checkpoint_lines_read = 0;
@@ -138,7 +137,7 @@ class ServerWorker{
 
             task.internal_completion_time = get_current_timestamp();
 
-            packet_send(task.internal_read_packet_to_send);
+            packet_send(task.internal_conn, task.internal_read_packet_to_send);
 
         }
         
@@ -151,49 +150,47 @@ class ServerWorker{
         return task;
 
     }
-/* 
-    ServerTask write(){
+ 
+    ServerTask write(ServerTask task){
 
-        size_t total_data_bytes = task.write_data.size();
-        int chunk_size = 10;
+        string file_path = task.internal_data_store_dir + "/" + task.file_path;
+        ofstream outfile;
 
-        ofstream outfile(task.file_path, ios::app);
+        if(quantum_size > 0 && task.internal_write_checkpoint_present == true)
+            outfile.open(file_path, ios::app);
+        else
+            outfile.open(file_path);
+            
+        
 
-        if(task.write_checkpoint_present == false)
-            task.write_checkpoint_bytes_written = 0;
 
         if (!outfile.is_open()) {
-            cerr << "Unable to open file for writing" << task.file_path << endl;
+            cerr << "Unable to open file for writing" << file_path << endl;
 
             task.task_status = "error";
 
             return task;
         }
 
-        while(task.write_checkpoint_bytes_written < total_data_bytes){
+        int quantum_check_count = 0;
+        char c;
+        while(recv(task.internal_conn, &c, 1, 0) > 0){
+            
+            outfile.put(c);
+            quantum_check_count ++;
 
-            size_t to_write;
-            if(chunk_size < (total_data_bytes - task.write_checkpoint_bytes_written))
-                to_write = chunk_size;
-            else
-                to_write = (total_data_bytes - task.write_checkpoint_bytes_written);
-
-            outfile.write(task.write_data.data() + 
-            task.write_checkpoint_bytes_written, to_write);
-
-            task.write_checkpoint_bytes_written += to_write;
-
-
-            // Creating write checkpoint in task
-            if(quantum_size > 0 && get_duration(processing_start_time, get_current_timestamp()) >= quantum_size){
-                task.write_checkpoint_present = true;
-                task.task_status = "pending";
+            
+            // quantum check
+            quantum_check_count ++;
+            if ( quantum_check_count >= 100 && quantum_complete() ){
+                quantum_check_count = 0;
+                task.internal_write_checkpoint_present = true;
 
                 outfile.close();
+                task.task_status = "pending";
                 return task;
 
             }
-
 
         }
 
@@ -203,18 +200,7 @@ class ServerWorker{
         outfile.close();
         
         
-        
-
-
-
-        task.write_data = "";
-
-        task.completion_time = get_current_timestamp();
-
-        string response_message = task.convert_to_json();
-        cout<<"\n Sending server response to client : \n"<<response_message<<endl;
-        send(task.internal_conn, response_message.c_str(), response_message.size(), 0);
-
+        task.internal_completion_time = get_current_timestamp();
         
         close(task.internal_conn);
 
@@ -222,11 +208,10 @@ class ServerWorker{
 
         return task;
 
-
     }
- */
 
-    void packet_send(string data){
+
+    void packet_send(int connection, string data){
 
         
         if(data.length() < SEND_PACKET_SIZE){
@@ -234,7 +219,7 @@ class ServerWorker{
             data += string(padding, '\0');
         }
         cout<<"\nSending packet to client : "<<data<<endl;
-        send(task.internal_conn, data.c_str(), data.length(), 0);
+        send(connection, data.c_str(), data.length(), 0);
 
     }
 
