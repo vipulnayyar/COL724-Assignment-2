@@ -258,8 +258,8 @@ int main(int argc, char** argv) {
     cout << "Request sent successfully" << endl;
 
     // Process response packets as they arrive
-    cout << "\nWaiting for server response..." << endl;
-    process_server_response(sock);
+    //cout << "\nWaiting for server response..." << endl;
+    //process_server_response(sock);
     long long receive_time = now_ms();
 
     cout << "\nTiming Information:" << endl;

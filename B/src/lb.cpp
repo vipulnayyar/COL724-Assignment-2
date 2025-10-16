@@ -9,7 +9,7 @@ using namespace std;
 
 
 #include <assignment/scheduler.h>
-
+#include <assignment/lbscheduler.h>
 
 int main(int argc, char** argv){
 
@@ -21,32 +21,7 @@ int main(int argc, char** argv){
         ->required()
         ->check(CLI::ExistingFile);
 
-    std::string sched_policy;
-
-    app.add_option("--sched", sched_policy, "(MANDATORY) Scheduling policy for server")
-        ->check(CLI::IsMember({"fcfs", "sjf", "rr"}))
-        ->required();
-
-    std::string file_store_dir;
-    app.add_option("--file", file_store_dir, "(MANDATORY) Directory path for file data store")
-        ->check(CLI::ExistingDirectory)
-        ->required();
-
-
-    int packet_size;
-    app.add_option("--p", packet_size, "(MANDATORY) Lines of text for server to send in one packet")
-        ->required()
-        ->check(CLI::Range(1, std::numeric_limits<int>::max()));
-
-    int rr_quantum = 0;
-    app.add_option("--quantum", rr_quantum, "(MANDATORY for RR) Time quantum for Round-Robin scheduling ")
-        ->check(CLI::Range(1, std::numeric_limits<int>::max()));
-
-
-    int cmd_server_threads;
-    app.add_option("--server-threads", cmd_server_threads, "(OPTIONAL) Number of worker threads the server creates(overrides value from config file)")
-        ->check(CLI::Range(1, std::numeric_limits<int>::max()));
-
+   
 
     try{
         CLI11_PARSE(app, argc, argv);
@@ -55,63 +30,32 @@ int main(int argc, char** argv){
         return app.exit(err);
     }
 
-
-    if (sched_policy == "rr" && app.get_option("--quantum")->count() == 0) {
-        cerr << "Error: --quantum is required when --sched is 'rr'\n\n";
-        cerr << app.help() <<endl;   
-        return 1;
-    }
-
     
     if(load_config(config_file) != 0){
         cerr <<"\nConfig load failure";
         return -1;
     }
 
-    if (app.get_option("--server-threads")->count() != 0 ){
-        SERVER_THREADS = cmd_server_threads;
-    }
+    cout<<"\n LB_IP "<<LB_IP<<endl;
+    cout<<"\n LB_PORT "<<LB_PORT<<endl;
 
-
-    if (sched_policy != "rr")
-        rr_quantum = 0;
-
-    cout<<endl<<"SERVER CONFIG : "<<endl;
-    cout<<"SERVER_IP : "<< SERVER_IP<<endl;
-    cout<<"SERVER_PORT : "<<SERVER_PORT<<endl;
-    cout<<"SERVER_THREADS : "<<SERVER_THREADS<<endl;
-    cout<<"CLIENT_THREADS : "<<CLIENT_THREADS<<endl;
-
-    cout<<"config_file : "<<config_file<<endl;
-    cout<<"sched_policy : "<<sched_policy<<endl;
-    cout<<"file_store_dir : "<<file_store_dir<<endl;
-    cout<<"packet_size : "<<packet_size<<endl;
-    cout<<"rr_quantum : "<<rr_quantum<<endl;
-   
+    cout<<"\n SERVER1_IP"<<SERVER1_IP<<endl;
+    cout<<"\n SERVER1_PORT"<<SERVER1_PORT<<endl;
     
-    if(sched_policy == "sjf"){
+    cout<<"\n SERVER2_IP"<<SERVER2_IP<<endl;
+    cout<<"\n SERVER2_PORT"<<SERVER2_PORT<<endl;
 
-        cout<<endl <<"Starting SJF Scheduler";
-        SJFScheduler scheduler = SJFScheduler(SERVER_THREADS, file_store_dir, packet_size, 0);
+    cout<<"\n SERVER3_IP"<<SERVER3_IP<<endl;
+    cout<<"\n SERVER3_PORT"<<SERVER3_PORT<<endl;
 
-        scheduler.server_loop(SERVER_IP, SERVER_PORT);
+    cout<<"\n SERVER4_IP"<<SERVER4_IP<<endl;
+    cout<<"\n SERVER4_PORT"<<SERVER4_PORT<<endl;
+    
 
-    }else if(sched_policy == "rr"){
+    cout<<endl <<"Starting LB Scheduler";
+    LBScheduler lb = LBScheduler(SERVER1_IP, SERVER1_PORT, SERVER2_IP, SERVER2_PORT, SERVER3_IP, SERVER3_PORT, SERVER4_IP, SERVER4_PORT);
 
-        cout<<endl <<"Starting RR Scheduler";
-
-        RRScheduler scheduler = RRScheduler(SERVER_THREADS, file_store_dir, packet_size, rr_quantum);
-
-        scheduler.server_loop(SERVER_IP, SERVER_PORT);
-
-    }else{
-
-        cout <<"Starting FCFS Scheduler"<<endl;
-
-        FCFSScheduler scheduler = FCFSScheduler(SERVER_THREADS, file_store_dir, packet_size, 0);
-
-        scheduler.server_loop(SERVER_IP, SERVER_PORT);
-    }
+    lb.server_loop(LB_IP, LB_PORT);
     
 
 
@@ -119,7 +63,7 @@ int main(int argc, char** argv){
 
     
 
-    cout<<endl<<"Exiting Server application";
+    cout<<endl<<"Exiting LB application";
 
 
     return 0;
