@@ -1,0 +1,7 @@
+{
+"server_ip": "127.0.0.1",
+"server_port": 9002,
+"server_threads": 4,
+"client_threads": 8
+}
+

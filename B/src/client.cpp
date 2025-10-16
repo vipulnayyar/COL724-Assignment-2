@@ -253,6 +253,9 @@ int main(int argc, char** argv) {
             close(sock);
             return 1;
         }
+
+        cout << "\nWaiting for server response..." << endl;
+        process_server_response(sock);
     }
 
     cout << "Request sent successfully" << endl;

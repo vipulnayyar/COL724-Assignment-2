@@ -1,36 +1,95 @@
 # include <assignment/requestresponse.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <iostream>
+#include <string>
+#include <map>
+#include <thread>
+#include <chrono>
+#include <thread>
+#include <netinet/in.h>
+#include <netinet/tcp.h> 
+#include <arpa/inet.h>
+
+
 
 class LBScheduler{
     public:
 
-    int server1_ip = -1;
+    string server1_ip = "";
     int server1_port = -1;
-    int server2_ip = -1;
+    string server2_ip = "";
     int server2_port = -1;
-    int server3_ip = -1;
+    string server3_ip = "";
     int server3_port = -1;
-    int server4_ip = -1;
+    string server4_ip = "";
     int server4_port = -1;
 
     int lb_downstream_socket = -1;
 
+    vector<thread> connection_threads;
 
-    map<int, int> lb_downstream_connections_to_upstream_sockets;
 
 
-    LBScheduler(string server1_ip, int server1_port, string server2_ip, int server2_port, string server3_ip, int server3_port, string server4_ip, int server4_port, string lb_ip, int lb_port){
+    LBScheduler(string srv1_ip, int srv1_port, string srv2_ip, int srv2_port, string srv3_ip, int srv3_port, string srv4_ip, int srv4_port, string lb_ip, int lb_port){
 
         lb_downstream_socket = create_downstream_socket(lb_ip, lb_port);
 
-        server1_ip = server1_ip;
-        server1_port = server1_port;
-        server2_ip = server2_ip;
-        server2_port = server2_port;
-        server3_ip = server3_ip;
-        server3_port = server3_port;
-        server4_ip = server4_ip;
-        server4_port = server4_port;
+        server1_ip = srv1_ip;
+        server1_port = srv1_port;
+        server2_ip = srv2_ip;
+        server2_port = srv2_port;
+        server3_ip = srv3_ip;
+        server3_port = srv3_port;
+        server4_ip = srv4_ip;
+        server4_port = srv4_port;
     }
+
+
+
+    void handle_connection_traffic(int source_connection, int destination_connection){
+
+    
+        char buffer[1024] = {0};
+
+        while(1){
+
+            int read_bytes = read(source_connection, buffer, 1024);
+            if(read_bytes < 0){
+                cerr << "Error reading from source connection"<<endl;
+                close(source_connection);
+                close(destination_connection);
+                return;
+            }else if(read_bytes == 0){
+                cerr << "Connection closed by source connection"<<endl;
+                close(source_connection);
+                close(destination_connection);
+                return;
+            }
+
+            int send_bytes = send(destination_connection, buffer, read_bytes, 0);
+            if(send_bytes < 0){
+                cerr << "Error sending to destination connection"<<endl;
+                close(source_connection);
+                close(destination_connection);
+                return;
+            }else if(send_bytes == 0){
+                cerr << "Connection closed by destination connection"<<endl;
+                close(source_connection);
+                close(destination_connection);
+                return;
+            }
+            else{
+                cout<<"Data sent to destination connection"<<endl;
+            }
+        }
+
+    }
+
+
+
+
 
     int create_downstream_socket(string ip, int port){
 
@@ -49,7 +108,7 @@ class LBScheduler{
         int opt = 1;
         if (setsockopt(downstream_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
             cerr << "setsockopt Failed " << endl;
-            return;
+            return -1;
         }
 
         int enable = 1;
@@ -70,7 +129,15 @@ class LBScheduler{
         return downstream_socket;
     }
 
-    int create_upstream_socket(string ip, int port){
+    int create_upstream_socket(){
+
+        // Scheduling
+        string ip = server1_ip;
+        int port = server1_port;
+
+
+        cout<<"\nCreating upstream socket to server "<<ip << " at port "<< port <<endl;
+
         int upstream_socket = socket(AF_INET, SOCK_STREAM, 0);
 
         if(upstream_socket <= 0){
@@ -85,7 +152,7 @@ class LBScheduler{
 
         int connect_status = connect(upstream_socket, (struct sockaddr*)&socket_address, sizeof(sockaddr));
         if(connect_status < 0){
-            cerr << "Connection Failed"<<endl;
+            cerr << "Upstream Connection Failed"<<endl;
             exit(1);
         }
 
@@ -102,45 +169,51 @@ class LBScheduler{
 
         return conn;
     }
-    void server_loop(string server_addr, int port){
 
-        cout<<"Starting Load Balancer on "<<server_addr << " at port "<< port<<endl;
-        int server_socket = create_listen_socket(server_addr, port);
+
+    void server_loop(){
+
+        cout<<"Starting Load Balancer on "<<LB_IP << " at port "<< LB_PORT<<endl;
        
-        
-    }
-
-
-
-    void handle_new_downstream_connections(){
-
         // connection loop
         while(1){
 
             cout<<"\nWaiting for new connection from clients"<<endl;
 
-            sockaddr_in socket_address;
-            int addrlen = sizeof(socket_address);
-            int conn = accept(lb_downstream_socket, (struct sockaddr*)&socket_address, (socklen_t*)&addrlen);
+            int downstream_connection = get_downstream_connection();
 
-            if(conn < 0){
-                cerr << "Connection Failed"<<endl;
+            if(downstream_connection < 0){
+                cerr << "Client Connection Failed"<<endl;
                 continue;
             }
 
             cout<<"New connection from client accepted"<<endl;
 
-           
-            cout<<"Request dispatched to queue";
+            // Scheduling
+            
+            int upstream_socket = create_upstream_socket();
+            
+            // start thread to handle connection traffic
+            connection_threads.emplace_back(&LBScheduler::handle_connection_traffic, this, downstream_connection, upstream_socket);
+
+            connection_threads.emplace_back(&LBScheduler::handle_connection_traffic, this, upstream_socket, downstream_connection);
+
     
-  
         }
 
     }
 
 
+    int set_nonblocking(int fd) {
+        int flags = fcntl(fd, F_GETFL, 0);
+        if (flags == -1) return -1;
+        return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
 
-    void handle_healthcheck_requests(server_ip, server_port){
+
+
+
+    /* void handle_healthcheck_requests(server_ip, server_port){
 
         while(1){
             sleep(1);
@@ -176,19 +249,7 @@ class LBScheduler{
         }
 
     }
-
-
-    void handle_downstream_to_upstream_traffic(){
-
-
-
-    }
-
-
-
-    void handle_upstream_to_downstream_traffic(){
-
-    }
+ */
 
 
 

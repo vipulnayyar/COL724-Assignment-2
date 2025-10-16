@@ -1,14 +1,10 @@
 
 #include <iostream>
-
 #include <CLI/CLI.hpp>
-
 #include <string>
 using namespace std;
-#include <assignment/conf.h>
 
-
-#include <assignment/scheduler.h>
+#include <assignment/lbconf.h>
 #include <assignment/lbscheduler.h>
 
 int main(int argc, char** argv){
@@ -31,7 +27,7 @@ int main(int argc, char** argv){
     }
 
     
-    if(load_config(config_file) != 0){
+    if(load_lb_config(config_file) != 0){
         cerr <<"\nConfig load failure";
         return -1;
     }
@@ -53,9 +49,9 @@ int main(int argc, char** argv){
     
 
     cout<<endl <<"Starting LB Scheduler";
-    LBScheduler lb = LBScheduler(SERVER1_IP, SERVER1_PORT, SERVER2_IP, SERVER2_PORT, SERVER3_IP, SERVER3_PORT, SERVER4_IP, SERVER4_PORT);
+    LBScheduler lb = LBScheduler(SERVER1_IP, SERVER1_PORT, SERVER2_IP, SERVER2_PORT, SERVER3_IP, SERVER3_PORT, SERVER4_IP, SERVER4_PORT, LB_IP, LB_PORT);
 
-    lb.server_loop(LB_IP, LB_PORT);
+    lb.server_loop();
     
 
 

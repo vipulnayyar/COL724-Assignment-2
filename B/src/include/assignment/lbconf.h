@@ -11,25 +11,24 @@ using namespace std;
 #include "rapidjson/filereadstream.h"
 using namespace rapidjson;
 
-#include <assignment/conf.h>
 
 string SERVER1_IP = "";
 int SERVER1_PORT = -1;
 
 string SERVER2_IP = "";
-int SERVER2_PORT = -1
+int SERVER2_PORT = -1;
 
 string SERVER3_IP = "";
-int SERVER3_PORT = -1
+int SERVER3_PORT = -1;
 
 string SERVER4_IP = "";
-int SERVER4_PORT = -1
+int SERVER4_PORT = -1;
 
 string LB_IP = "";
-int LB_PORT = -1
+int LB_PORT = -1;
 
 // Loading config to global vars
-int load_config(string conf_file){
+int load_lb_config(string conf_file){
 
     Document doc;
     char buffer[8096];
@@ -89,8 +88,8 @@ int load_config(string conf_file){
 
     
     assert(doc.HasMember("lb_ip"));
-    assert(doc["lb_ip"].IsInt());
-    LB_IP = doc["lb_ip"].GetInt();
+    assert(doc["lb_ip"].IsString());
+    LB_IP = doc["lb_ip"].GetString();
     
     assert(doc.HasMember("lb_port"));
     assert(doc["lb_port"].IsInt());

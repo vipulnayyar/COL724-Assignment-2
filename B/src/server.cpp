@@ -5,7 +5,7 @@
 
 #include <string>
 using namespace std;
-#include <assignment/conf.h>
+#include <assignment/clientserverconf.h>
 
 #include <spdlog/spdlog.h>
 #include <assignment/scheduler.h>
@@ -64,7 +64,7 @@ int main(int argc, char** argv){
     }
 
     
-    if(load_config(config_file) != 0){
+    if(load_server_config(config_file) != 0){
         cerr <<"\nConfig load failure";
         return -1;
     }
