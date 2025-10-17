@@ -105,7 +105,7 @@ class Scheduler{
 
         cout<<"Bind status = "<<bind_status <<endl;
 
-        int listen_status = listen(server_socket, 10);
+        int listen_status = listen(server_socket, 64);
 
         cout<<"Listen status = "<<listen_status <<endl;
 
@@ -145,6 +145,8 @@ class Scheduler{
             cout<<"Message buffer: "<<msg_buffer<<endl;
 
             task.convert_from_json(msg_buffer);
+
+            cout<<"Request read from LB: "<<task.req_id<<endl;
 
             task.display();
 
@@ -223,10 +225,10 @@ class Scheduler{
 
     void worker_loop(int id){
 
-        cout<<"\nStarting new Worker thread with id : "<<id << endl;
+        cout<<"\nStarting new Worker thread with id : "<<id + 1 << endl;
         ServerWorker server_worker(id, packet_size, quantum_size);
 
-        ofstream metrics_file("server_worker_log.txt."+to_string(id));
+        ofstream metrics_file("server_worker_log.txt."+to_string(id + 1));
         if(!metrics_file.is_open()){
             cerr << "Unable to open log file"<<endl;
             exit(1);
@@ -245,6 +247,9 @@ class Scheduler{
             cout<<"Request picked from queue by worker "<< id;
 
             
+            task.task_status = "processing";
+
+            cout<<"\n Processing request "<<task.req_id<<endl;
 
             
             ServerTask processed_task = server_worker.process_req(task);
@@ -264,6 +269,9 @@ class Scheduler{
             }
 
             task.internal_completion_time = get_current_timestamp();
+
+
+            cout<<"\n Completing request "<<task.req_id<<" with status "<<processed_task.task_status<<endl;
 
             metrics_file<< get_current_timestamp() <<","<<task.req_id<<","<<task.req_type<<","<<task.file_path<<","<<task.internal_arrival_time<<","<<task.internal_service_start_time<<","<<task.internal_completion_time<<endl;
 

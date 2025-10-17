@@ -34,6 +34,21 @@ class ClientRequest{
         doc.Accept(writer);
         return buffer.GetString();
     }
+
+    bool convert_from_json(const string& json_str){
+        Document doc;
+        doc.Parse(json_str.c_str());
+        if(doc.HasParseError() || !doc.IsObject()){
+            cerr << "Error parsing JSON: Invalid JSON format or not an object" << endl;
+            return false;
+        }
+        
+        if(doc.HasMember("req_id")) req_id = doc["req_id"].GetString();
+        if(doc.HasMember("req_type")) req_type = doc["req_type"].GetString();
+        if(doc.HasMember("file_path")) file_path = doc["file_path"].GetString();
+
+        return true;
+    }
    
 };
 
@@ -86,9 +101,9 @@ class HealthCheckResponse{
     public:
     string req_id = "";
     string req_type = "";
-    int queue_length = 0;
-    float connection_throughput = 0;
-    float average_time_spent_on_server = 0;
+    int queue_length = -1;
+    float connection_throughput = -1;
+    float average_time_spent_on_server = -1;
     bool response_status = false;
 
     string convert_to_json(){
@@ -147,7 +162,7 @@ class ServerTask{
     string req_type = "";
     string file_path = "";
 
-    string task_status = "pending";
+    string task_status = "new";
 
     int internal_conn = -1;
     string internal_data_store_dir = "";

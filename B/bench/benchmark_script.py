@@ -9,8 +9,9 @@ ALGORITHMS     = ["wrr", "wlc"]           # weighted round-robin and weighted-le
 CLIENT_THREADS = [2, 4, 6]             # concurrency levels
 REQUEST_RATES  = [10, 50, 100, 200]      # mean Poisson rates (req/s per client)
 RUN_TIME       = 60                      # seconds per experiment
-CONFIG_PATH    = "./conf/config.json"           # must contain lb + 4 servers
-DATA_FILE      = "./data/sample.txt"     # test file for PUT/GET
+CONFIG_PATH    = "../conf/config.json"           # must contain lb + 4 servers
+SERVER_DATA_DIR      = "./server_files"     # test file for PUT/GET
+CLIENT_DATA_DIR      = "./client_files"     # test file for PUT/GET
 LOG_DIR        = "./logs"
 
 
@@ -44,8 +45,8 @@ def start_servers(cfg):
         ip   = cfg[f"server{i}_ip"]
         port = str(cfg[f"server{i}_port"])
         logfile = f"{LOG_DIR}/servers/server{i}.log"
-        cmd = ["./server", "--ip", ip, "--port", port,
-               "--sched", "fcfs", "--file", DATA_FILE, "--p", "5"]
+        cmd = ["../bin/server", "--ip", ip, "--port", port,
+               "--sched", "fcfs", "--file", SERVER_DATA_DIR, "--p", "5"]
         procs.append(spawn(cmd, logfile))
         time.sleep(0.5)
     print("[+] Servers started.")
@@ -53,7 +54,7 @@ def start_servers(cfg):
 
 def start_loadbalancer(cfg, algo):
     logfile = f"{LOG_DIR}/lb/lb_{algo}.log"
-    cmd = ["./loadbalancer", "--config", CONFIG_PATH, "--algo", algo]
+    cmd = ["../bin/lb", "--config", CONFIG_PATH, "--sched", algo]
     proc = spawn(cmd, logfile)
     print(f"[+] Load balancer started with algorithm: {algo}")
     time.sleep(3)  # allow health-check cycle
@@ -72,8 +73,11 @@ def start_clients(cfg, n_clients, rate):
             while not stop_flag.is_set() and (time.time() - start_time < RUN_TIME):
                 inter = -math.log(1.0 - random.random()) / rate  # exponential(λ)
                 time.sleep(inter)
-                cmd = ["./client", "--config", CONFIG_PATH,
-                       "--file", DATA_FILE, "--name", f"sample_{cid}.txt", "--op", "PUT"]
+                #cmd = ["../bin/client", "--config", CONFIG_PATH,
+                #       "--file", DATA_FILE, "--name", f"sample_{cid}.txt", "--op", "PUT"]
+                cmd = ["../bin/client", "--config", CONFIG_PATH,
+                       "--name", f"sample_{cid}.txt", "--op", "GET"]
+
                 subprocess.run(cmd, stdout=out, stderr=subprocess.STDOUT)
 
     for cid in range(n_clients):
@@ -101,8 +105,9 @@ def run_benchmarks():
         for n_clients in CLIENT_THREADS:
             for rate in REQUEST_RATES:
                 print(f"\n=== Running {algo.upper()} | Clients={n_clients} | Rate={rate} req/s ===")
-                servers = start_servers(cfg)
-                lb_proc = start_loadbalancer(cfg, algo)
+                #servers = start_servers(cfg)
+                
+                #lb_proc = start_loadbalancer(cfg, algo)
                 clients, stop_flag = start_clients(cfg, n_clients, rate)
 
                 # let run_time elapse

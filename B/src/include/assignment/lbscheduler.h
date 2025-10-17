@@ -13,6 +13,7 @@
 #include <fstream>
 #include <vector>
 #include <atomic>
+#include <mutex>
 
 using namespace std;
 using namespace std::chrono;
@@ -187,6 +188,11 @@ class LBScheduler{
                 break;
             }
 
+            ClientRequest client_request;
+            client_request.convert_from_json(buffer);
+
+            cout<<"\n Request received from client: "<<client_request.req_id<<endl;
+
             int send_bytes = send(destination_connection, buffer, read_bytes, 0);
             if(send_bytes < 0){
                 cerr << "Error sending to destination connection"<<endl;
@@ -196,7 +202,8 @@ class LBScheduler{
                 break;
             }
             else{
-                cout<<"Data sent to destination connection"<<endl;
+                //cout<<"Request sent to server"<<endl;
+                cout<<"Request sent to upstream server: "<<client_request.req_id<<endl;
             }
         }
 
@@ -249,7 +256,7 @@ class LBScheduler{
 
         cout<<"Bind status = "<<bind_status <<endl;
 
-        int listen_status = listen(downstream_socket, 10);
+        int listen_status = listen(downstream_socket, 64);
         if(listen_status < 0){
             cerr << "***Listen Failed for downstream socket***"<<endl;
             return -1;
@@ -437,7 +444,7 @@ class LBScheduler{
             connection_threads.emplace_back(&LBScheduler::handle_connection_traffic, this, upstream_server_id, "downward", upstream_socket, downstream_connection);
 
             // Rebalancing WRR weights
-            //rebalance_wrr_weights();
+            rebalance_wrr_weights();
 
 
 

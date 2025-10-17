@@ -77,6 +77,7 @@ void print_usage(const char* program) {
          << "  --file <path>          Local file path for PUT operation\n"
          << "  --name <name>          Server-side file name\n"
          << "  --config <path>        Path to config.json (default: ./conf/config.json)\n"
+         << "  --req-id <id>          Request ID (default: 1)\n"
          << "Example:\n"
          << "  " << program << " --op GET --name test.txt\n"
          << "  " << program << " --op PUT --file ./local/test.txt --name test.txt\n";
@@ -88,6 +89,7 @@ int main(int argc, char** argv) {
     string file_path;
     string file_name;
     string config_path = "./conf/config.json";
+    string req_id = "1";
 
     // Parse command line arguments
     for (int i = 1; i < argc; i++) {
@@ -96,6 +98,7 @@ int main(int argc, char** argv) {
         else if (arg == "--file" && i + 1 < argc) file_path = argv[++i];
         else if (arg == "--name" && i + 1 < argc) file_name = argv[++i];
         else if (arg == "--config" && i + 1 < argc) config_path = argv[++i];
+        else if (arg == "--req-id" && i + 1 < argc) req_id = argv[++i];
         else if (arg == "--help") {
             print_usage(argv[0]);
             return 0;
@@ -185,7 +188,7 @@ int main(int argc, char** argv) {
 
     // Create a request
     ClientRequest req;
-    req.req_id = "1";
+    req.req_id = req_id;
     req.req_type = operation == "GET" ? "read" : "write";
     req.file_path = file_name;
 

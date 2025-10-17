@@ -128,8 +128,8 @@ class ServerWorker{
             }
 
             // quantum check
-            quantum_check_count ++;
-            if ( quantum_check_count >= 100 &&  quantum_complete() ){
+            /* quantum_check_count ++;
+            if (quantum_size > 0 && quantum_check_count >= 100 &&  quantum_complete() ){
                 quantum_check_count = 0;
                 task.internal_read_checkpoint_present = true;
                 task.internal_read_chkpt_position = infile.tellg();
@@ -138,7 +138,7 @@ class ServerWorker{
                 task.task_status = "pending";
                 return task;
 
-            }
+            } */
         
         }
 
@@ -205,8 +205,8 @@ class ServerWorker{
 
             
             // quantum check
-            quantum_check_count ++;
-            if ( quantum_check_count >= 100 && quantum_complete() ){
+            /* quantum_check_count ++;
+            if ( quantum_size > 0 && quantum_check_count >= 100 && quantum_complete() ){
                 quantum_check_count = 0;
                 task.internal_write_checkpoint_present = true;
 
@@ -214,7 +214,7 @@ class ServerWorker{
                 task.task_status = "pending";
                 return task;
 
-            }
+            } */
 
         }
 
