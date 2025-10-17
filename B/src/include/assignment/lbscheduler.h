@@ -39,7 +39,7 @@ class LBScheduler{
     vector<thread> healthcheck_threads;
 
     // Adaptive Weighted Round Robin (1-10)
-    int server_weight[4] = {4, 1, 1, 1};
+    int server_weight[4] = {1, 1, 1, 1};
 
     // Adaptive Least Connections
     atomic<int> server_connections[4] = {0, 0, 0, 0};
