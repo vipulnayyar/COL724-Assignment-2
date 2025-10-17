@@ -418,7 +418,7 @@ class LBScheduler{
 
             long long response_time_ms = received_timestamp - sent_timestamp;
 
-            healthcheck_metrics_file<< get_current_timestamp() <<","<< upstream_server_id + 1 <<"," << server_ip[upstream_server_id]<<"," << server_port[upstream_server_id] <<"," <<healthcheck_response.response_status<<","<< response_time_ms <<","<< healthcheck_response.queue_length <<endl;
+            healthcheck_metrics_file<< get_current_timestamp() <<","<< upstream_server_id + 1 <<"," << server_ip[upstream_server_id]<<"," << server_port[upstream_server_id] <<"," <<healthcheck_response.response_status<<","<< response_time_ms <<","<< healthcheck_response.queue_length <<","<< healthcheck_response.connection_throughput << endl;
 
             close(upstream_server_socket);
 
