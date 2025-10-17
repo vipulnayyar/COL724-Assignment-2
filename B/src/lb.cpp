@@ -17,6 +17,10 @@ int main(int argc, char** argv){
         ->required()
         ->check(CLI::ExistingFile);
 
+    string sched_policy = "wrr";
+    app.add_option("--sched-policy", sched_policy, "(MANDATORY) Scheduling policy (wrr or lc)")
+        ->required();
+
    
 
     try{
@@ -39,7 +43,7 @@ int main(int argc, char** argv){
     cout<<"\n SERVER_PORTS : "<<SERVER_PORT[0] <<", "<<SERVER_PORT[1] <<", "<<SERVER_PORT[2] <<", "<<SERVER_PORT[3] <<endl;
 
     cout<<endl <<"Starting LB Scheduler";
-    LBScheduler load_balancer = LBScheduler(SERVER_IP[0], SERVER_PORT[0], SERVER_IP[1], SERVER_PORT[1], SERVER_IP[2], SERVER_PORT[2], SERVER_IP[3], SERVER_PORT[3], LB_IP, LB_PORT, "wrr");
+    LBScheduler load_balancer = LBScheduler(SERVER_IP[0], SERVER_PORT[0], SERVER_IP[1], SERVER_PORT[1], SERVER_IP[2], SERVER_PORT[2], SERVER_IP[3], SERVER_PORT[3], LB_IP, LB_PORT, sched_policy);
 
     load_balancer.server_loop();
     

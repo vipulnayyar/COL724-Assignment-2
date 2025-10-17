@@ -1,12 +1,2 @@
 Connecting to server 127.0.0.1 at port 8000
-Sending request: {"req_id":"24_15","req_type":"read","file_path":"sample2.txt"}
-
-
-Waiting for server response...
-Total bytes received: 0
-Request sent successfully
-
-Timing Information:
-Send Time: 1760713301818 ms
-Receive Time: 1760713302116 ms
-Round Trip Time: 298 ms
+Connection failed

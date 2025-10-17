@@ -3,10 +3,11 @@ Sending request: {"req_id":"13_6","req_type":"read","file_path":"sample2.txt"}
 
 
 Waiting for server response...
+Error receiving data: Connection reset by peer
 Total bytes received: 0
 Request sent successfully
 
 Timing Information:
-Send Time: 1760713290594 ms
-Receive Time: 1760713290610 ms
-Round Trip Time: 16 ms
+Send Time: 1760715373034 ms
+Receive Time: 1760715373046 ms
+Round Trip Time: 12 ms

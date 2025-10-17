@@ -1,13 +1,2 @@
 Connecting to server 127.0.0.1 at port 8000
-Sending request: {"req_id":"25_3","req_type":"read","file_path":"sample2.txt"}
-
-
-Waiting for server response...
-Error receiving data: Connection reset by peer
-Total bytes received: 0
-Request sent successfully
-
-Timing Information:
-Send Time: 1760713302831 ms
-Receive Time: 1760713302835 ms
-Round Trip Time: 4 ms
+Connection failed

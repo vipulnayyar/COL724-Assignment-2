@@ -1,4 +1,6 @@
 
+LB_SCHED_POLICY=$1
+
 mkdir -p server1 server2 server3 server4 lb client
 
 cd server1
@@ -14,7 +16,7 @@ cd ../server4
 nohup ../../bin/server --config-file ../../conf/config.json --sched fcfs --file ../server_files --p 20 --server-id 4 > server4.log 2>&1  &
 
 cd ../lb
-nohup ../../bin/lb --config-file ../../conf/config.json  > lb.log 2>&1 &
+nohup ../../bin/lb --config-file ../../conf/config.json --sched-policy $LB_SCHED_POLICY > lb.log 2>&1 &
 
 
 sleep 2
