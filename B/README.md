@@ -64,13 +64,20 @@ $ ./bench.sh wrr
 
 # Run benchmarks for Least Connections LB scheduling
 $ ./bench.sh lc
+
 ```
 Load Balancer execution logs are present in `./bench/lb/`
+
 Server1 execution logs are present in `./bench/server1/`
+
 Server2 execution logs are present in `./bench/server2/`
+
 Server3 execution logs are present in `./bench/server3/`
+
 Server4 execution logs are present in `./bench/server4/`
+
 Client execution logs are present in `./bench/client/`
 
+The health check files present in `./bench/lb/` is present 
 
 
