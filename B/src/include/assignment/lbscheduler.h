@@ -264,6 +264,8 @@ class LBScheduler{
         static int round_robin_index = 0;
         round_robin_index++;
 
+        cout<<" Current server weights: "<<server_weight[0]<<", "<<server_weight[1]<<", "<<server_weight[2]<<", "<<server_weight[3]<<endl;
+
         int current_server_index = round_robin_index % (server_weight[0] + server_weight[1] + server_weight[2] + server_weight[3]);
 
         if(current_server_index < server_weight[0]){
@@ -425,11 +427,20 @@ class LBScheduler{
                     break;
                 }
 
-                // Rebalancing WRR weights
-                rebalance_wrr_weights();
+                
 
 
             }
+
+            
+            connection_threads.emplace_back(&LBScheduler::handle_connection_traffic, this, upstream_server_id, "upward", downstream_connection, upstream_socket);
+            connection_threads.emplace_back(&LBScheduler::handle_connection_traffic, this, upstream_server_id, "downward", upstream_socket, downstream_connection);
+
+            // Rebalancing WRR weights
+            //rebalance_wrr_weights();
+
+
+
         }
     }
 

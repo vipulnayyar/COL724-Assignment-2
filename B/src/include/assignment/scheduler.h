@@ -121,9 +121,6 @@ class Scheduler{
         // connection loop
         while(1){
 
-
-            sleep(2);
-
             cout<<"\nWaiting for new connection"<<endl;
 
             int addrlen = sizeof(socket_address);
