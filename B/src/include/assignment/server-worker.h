@@ -56,31 +56,14 @@ class ServerWorker{
         else if(task.req_type=="write"){
 
             return write(task);
-        }else if(task.req_type == "health_check"){
-            return health_check(task);
-        }
+        } 
 
         ServerTask dummytask(0, "");
         return dummytask;
 
     }
 
-    ServerTask health_check(ServerTask task){
-        
-        ServerResponse healthcheck_response;
-        healthcheck_response.req_id = task.req_id;
-        healthcheck_response.req_type = task.req_type;
-        healthcheck_response.file_path = task.file_path;
-        healthcheck_response.response_status = true;
-
-        string healthcheck_response_json = healthcheck_response.convert_to_json();
-        packet_send(task.internal_conn, healthcheck_response_json.c_str());
-
-        close(task.internal_conn);
-        task.task_status = "completed";
-
-        return task;
-    }
+  
 
     ServerTask read(ServerTask task){
 
@@ -129,7 +112,14 @@ class ServerWorker{
             if(task.internal_read_packet_to_send.length() == SEND_PACKET_SIZE
                 || task.internal_read_checkpoint_lines_read == lines_per_packet){
 
-                packet_send(task.internal_conn, task.internal_read_packet_to_send);
+                int send_bytes = packet_send(task.internal_conn, task.internal_read_packet_to_send);
+                if(send_bytes <= 0){
+                    cerr << "Error sending packet to client"<<endl;
+                    //close(task.internal_conn);
+                    infile.close();
+                    task.task_status = "error";
+                    return task;
+                }
 
                 task.internal_read_packet_to_send = "";
                 task.internal_read_checkpoint_lines_read = 0;
@@ -155,7 +145,23 @@ class ServerWorker{
         if (task.internal_read_packet_to_send.length() > 0){
 
 
-            packet_send(task.internal_conn, task.internal_read_packet_to_send);
+            int send_bytes = packet_send(task.internal_conn, task.internal_read_packet_to_send);
+            if(send_bytes < 0){
+                cerr << "Error sending packet to client"<<endl;
+                //close(task.internal_conn);
+                infile.close();
+                task.task_status = "error";
+                return task;
+            }else if(send_bytes == 0){
+                cerr << "Connection closed by client"<<endl;
+                infile.close();
+                task.task_status = "error";
+                return task;
+            }
+            else{
+                cout<<"Packet sent to client"<<endl;
+            }
+
 
         }
         
@@ -228,7 +234,7 @@ class ServerWorker{
     }
 
 
-    void packet_send(int connection, string data){
+    int packet_send(int connection, string data){
 
         
         if(data.length() < SEND_PACKET_SIZE){
@@ -236,8 +242,8 @@ class ServerWorker{
             data += string(padding, '\0');
         }
         cout<<"\nSending packet to client : "<<data<<endl;
-        send(connection, data.c_str(), data.length(), 0);
-
+        return send(connection, data.c_str(), data.length(), 0);
+        
     }
 
 

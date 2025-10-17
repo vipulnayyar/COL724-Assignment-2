@@ -12,23 +12,15 @@ using namespace std;
 using namespace rapidjson;
 
 
-string SERVER1_IP = "";
-int SERVER1_PORT = -1;
 
-string SERVER2_IP = "";
-int SERVER2_PORT = -1;
-
-string SERVER3_IP = "";
-int SERVER3_PORT = -1;
-
-string SERVER4_IP = "";
-int SERVER4_PORT = -1;
+string SERVER_IP[4] = {"", "", "", ""};
+int SERVER_PORT[4] = {-1, -1, -1, -1};
 
 string LB_IP = "";
 int LB_PORT = -1;
 
 // Loading config to global vars
-int load_lb_config(string conf_file){
+int load_config(string conf_file){
 
     Document doc;
     char buffer[8096];
@@ -52,38 +44,38 @@ int load_lb_config(string conf_file){
 
     assert(doc.HasMember("server1_ip"));
     assert(doc["server1_ip"].IsString());
-    SERVER1_IP = doc["server1_ip"].GetString();
+    SERVER_IP[0] = doc["server1_ip"].GetString();
 
     assert(doc.HasMember("server1_port"));
     assert(doc["server1_port"].IsInt());
-    SERVER1_PORT = doc["server1_port"].GetInt();
+    SERVER_PORT[0] = doc["server1_port"].GetInt();
 
 
     assert(doc.HasMember("server2_ip"));
     assert(doc["server2_ip"].IsString());
-    SERVER2_IP = doc["server2_ip"].GetString();
+    SERVER_IP[1] = doc["server2_ip"].GetString();
 
     assert(doc.HasMember("server2_port"));
     assert(doc["server2_port"].IsInt());
-    SERVER2_PORT = doc["server2_port"].GetInt();
+    SERVER_PORT[1] = doc["server2_port"].GetInt();
 
 
     assert(doc.HasMember("server3_ip"));
     assert(doc["server3_ip"].IsString());
-    SERVER3_IP = doc["server3_ip"].GetString();
+    SERVER_IP[2] = doc["server3_ip"].GetString();
 
     assert(doc.HasMember("server3_port"));
     assert(doc["server3_port"].IsInt());
-    SERVER3_PORT = doc["server3_port"].GetInt();
+    SERVER_PORT[2] = doc["server3_port"].GetInt();
 
 
     assert(doc.HasMember("server4_ip"));
     assert(doc["server4_ip"].IsString());
-    SERVER4_IP = doc["server4_ip"].GetString();
+    SERVER_IP[3] = doc["server4_ip"].GetString();
 
     assert(doc.HasMember("server4_port"));
     assert(doc["server4_port"].IsInt());
-    SERVER4_PORT = doc["server4_port"].GetInt();
+    SERVER_PORT[3] = doc["server4_port"].GetInt();
 
 
     

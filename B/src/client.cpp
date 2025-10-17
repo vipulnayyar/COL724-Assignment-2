@@ -121,13 +121,13 @@ int main(int argc, char** argv) {
     }
 
     // Get server details from config
-    if (!config.HasMember("server_ip") || !config.HasMember("server_port")) {
-        cerr << "Error: Config file missing required fields (server_ip, server_port)" << endl;
+    if (!config.HasMember("lb_ip") || !config.HasMember("lb_port")) {
+        cerr << "Error: Config file missing required fields (lb_ip, lb_port)" << endl;
         return 1;
     }
 
-    string SERVER_IP = config["server_ip"].GetString();
-    int SERVER_PORT = config["server_port"].GetInt();
+    string LB_IP = config["lb_ip"].GetString();
+    int LB_PORT = config["lb_port"].GetInt();
 
     // Validate arguments
     if (operation.empty()) {
@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    cout<<"Connecting to server "<<SERVER_IP << " at port "<< SERVER_PORT << endl;
+    cout<<"Connecting to server "<<LB_IP << " at port "<< LB_PORT << endl;
 
     // Create socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -169,8 +169,8 @@ int main(int argc, char** argv) {
     // Set up server address
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(SERVER_PORT);
-    if (inet_pton(AF_INET, SERVER_IP.c_str(), &addr.sin_addr) <= 0) {
+    addr.sin_port = htons(LB_PORT);
+    if (inet_pton(AF_INET, LB_IP.c_str(), &addr.sin_addr) <= 0) {
         cerr << "Invalid address" << endl;
         close(sock);
         return 1;

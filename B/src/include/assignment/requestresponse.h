@@ -82,6 +82,58 @@ class ServerResponse{
 
 
 
+class HealthCheckResponse{
+    public:
+    string req_id = "";
+    string req_type = "";
+    int queue_length = 0;
+    float connection_throughput = 0;
+    bool response_status = false;
+
+    string convert_to_json(){
+        Document doc;
+        doc.SetObject();
+        Document::AllocatorType& allocator = doc.GetAllocator();
+
+        doc.AddMember("req_id", Value(req_id.c_str(), allocator), allocator);
+        doc.AddMember("req_type", Value(req_type.c_str(), allocator), allocator);
+        doc.AddMember("queue_length", Value(queue_length), allocator);
+        doc.AddMember("response_status", Value(response_status), allocator);
+        doc.AddMember("connection_throughput", Value(connection_throughput), allocator);
+
+        StringBuffer buffer;
+        Writer<StringBuffer> writer(buffer);
+        doc.Accept(writer);
+        return buffer.GetString();
+    }
+
+    bool convert_from_json(const string& json_str){
+        Document doc;
+        doc.Parse(json_str.c_str());
+        if(doc.HasParseError() || !doc.IsObject()){
+            cerr << "Error parsing JSON: Invalid JSON format or not an object" << endl;
+            return false;
+        }
+        
+        if(doc.HasMember("req_id")) req_id = doc["req_id"].GetString();
+        if(doc.HasMember("req_type")) req_type = doc["req_type"].GetString();
+        if(doc.HasMember("queue_length")) queue_length = doc["queue_length"].GetInt();
+        if(doc.HasMember("response_status")) response_status = doc["response_status"].GetBool();
+        if(doc.HasMember("connection_throughput")) connection_throughput = doc["connection_throughput"].GetFloat();
+        
+        return true;
+    }
+
+    void display(){
+        cout<<"Request ID: "<<req_id<<endl;
+        cout<<"Request Type: "<<req_type<<endl;
+        cout<<"Queue Length: "<<queue_length<<endl;
+        cout<<"Response Status: "<<response_status<<endl;
+    }
+
+
+};
+
 
 class ServerTask{
     public:

@@ -5,12 +5,17 @@
 
 #include <string>
 using namespace std;
-#include <assignment/clientserverconf.h>
+#include <assignment/lbconf.h>
 
 #include <spdlog/spdlog.h>
 #include <assignment/scheduler.h>
 
 using namespace spdlog;
+
+
+int SERVER_THREADS = 4;
+int CLIENT_THREADS = 4;
+
 
 int main(int argc, char** argv){
 
@@ -39,6 +44,11 @@ int main(int argc, char** argv){
         ->required()
         ->check(CLI::Range(1, std::numeric_limits<int>::max()));
 
+    int server_id;
+    app.add_option("--server-id", server_id, "(MANDATORY) Server ID(1-4)")
+        ->required()
+        ->check(CLI::Range(1, 4));
+
     int rr_quantum = 0;
     app.add_option("--quantum", rr_quantum, "(MANDATORY for RR) Time quantum for Round-Robin scheduling ")
         ->check(CLI::Range(1, std::numeric_limits<int>::max()));
@@ -64,7 +74,7 @@ int main(int argc, char** argv){
     }
 
     
-    if(load_server_config(config_file) != 0){
+    if(load_config(config_file) != 0){
         cerr <<"\nConfig load failure";
         return -1;
     }
@@ -78,10 +88,10 @@ int main(int argc, char** argv){
         rr_quantum = 0;
 
     cout<<endl<<"SERVER CONFIG : "<<endl;
-    cout<<"SERVER_IP : "<< SERVER_IP<<endl;
-    cout<<"SERVER_PORT : "<<SERVER_PORT<<endl;
+    cout<<"SERVER_IPs : "<< SERVER_IP[0] <<", "<< SERVER_IP[1] <<", "<< SERVER_IP[2] <<", "<< SERVER_IP[3] <<endl;
+    cout<<"SERVER_PORTS : "<<SERVER_PORT[0] <<", "<< SERVER_PORT[1] <<", "<< SERVER_PORT[2] <<", "<< SERVER_PORT[3] <<endl;
+    
     cout<<"SERVER_THREADS : "<<SERVER_THREADS<<endl;
-    cout<<"CLIENT_THREADS : "<<CLIENT_THREADS<<endl;
 
     cout<<"config_file : "<<config_file<<endl;
     cout<<"sched_policy : "<<sched_policy<<endl;
@@ -90,31 +100,41 @@ int main(int argc, char** argv){
     cout<<"rr_quantum : "<<rr_quantum<<endl;
    
     
-    if(sched_policy == "sjf"){
+    string server_ip = SERVER_IP[server_id - 1];
+    int server_port = SERVER_PORT[server_id - 1];
 
-        cout<<endl <<"Starting SJF Scheduler";
-        SJFScheduler scheduler = SJFScheduler(SERVER_THREADS, file_store_dir, packet_size, 0);
 
-        scheduler.server_loop(SERVER_IP, SERVER_PORT);
+    try{
 
-    }else if(sched_policy == "rr"){
+        if(sched_policy == "sjf"){
 
-        cout<<endl <<"Starting RR Scheduler";
+            cout<<endl <<"Starting SJF Scheduler";
+            SJFScheduler scheduler = SJFScheduler(SERVER_THREADS, file_store_dir, packet_size, 0);
 
-        RRScheduler scheduler = RRScheduler(SERVER_THREADS, file_store_dir, packet_size, rr_quantum);
+            scheduler.server_loop(server_ip, server_port);
 
-        scheduler.server_loop(SERVER_IP, SERVER_PORT);
+        }else if(sched_policy == "rr"){
 
-    }else{
+            cout<<endl <<"Starting RR Scheduler";
 
-        cout <<"Starting FCFS Scheduler"<<endl;
+            RRScheduler scheduler = RRScheduler(SERVER_THREADS, file_store_dir, packet_size, rr_quantum);
 
-        FCFSScheduler scheduler = FCFSScheduler(SERVER_THREADS, file_store_dir, packet_size, 0);
+            scheduler.server_loop(server_ip, server_port);
 
-        scheduler.server_loop(SERVER_IP, SERVER_PORT);
-    }
+        }else{
+
+            cout <<"Starting FCFS Scheduler"<<endl;
+
+            FCFSScheduler scheduler = FCFSScheduler(SERVER_THREADS, file_store_dir, packet_size, 0);
+
+            scheduler.server_loop(server_ip, server_port);
+        }
     
-
+    }
+    catch (const exception &e) {
+        cerr << "Error: " << e.what() << endl;
+        return -1;
+    }
 
 
 

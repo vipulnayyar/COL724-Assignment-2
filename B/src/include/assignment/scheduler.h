@@ -29,6 +29,14 @@ class Scheduler{
 
     queue<ServerTask> fcfs_queue;
 
+    int SEND_PACKET_SIZE = 1024;
+
+
+    mutex mutex_throughput;
+    long long connections_processed = 0;
+    long long window_size_ms = 1000;
+    long long throughput_window_start_time = 0;
+
     
     int packet_size;
     bool exiting = false;
@@ -43,6 +51,8 @@ class Scheduler{
 
     virtual void push(ServerTask req) = 0;
     virtual ServerTask pop() = 0;
+
+    virtual int get_queue_length() = 0;
 
     Scheduler(int server_threads, string file_dir, int p, int q){
         worker_thread_count = server_threads;
@@ -115,6 +125,35 @@ class Scheduler{
             // Creating a new task for the new connection
             ServerTask task(conn, file_store_dir);
             task.internal_arrival_time = get_current_timestamp();
+
+
+            char msg_buffer[1024] = {0};
+            auto bytesRead = read(conn, msg_buffer, sizeof(msg_buffer));
+
+            if(bytesRead < 0){
+                cerr << "Error reading from client"<<endl;
+                continue;
+            }else if(bytesRead == 0){
+                cerr << "Connection closed by client"<<endl;
+                continue;
+            }
+
+            cout<<"Message buffer: "<<msg_buffer<<endl;
+
+            task.convert_from_json(msg_buffer);
+
+            task.display();
+
+            if(task.req_type == "health_check"){
+                handle_health_check(task);
+                continue;
+
+            }
+
+            
+            
+            cout<<"Request header read from client"<<endl;
+
             push(task);
 
             cout<<"Request dispatched to queue";
@@ -123,6 +162,34 @@ class Scheduler{
         }
     }
 
+    void packet_send(int connection, string data){
+
+        
+        if(data.length() < SEND_PACKET_SIZE){
+            int padding = SEND_PACKET_SIZE - data.length();
+            data += string(padding, '\0');
+        }
+        cout<<"\nSending packet to client : "<<data<<endl;
+        send(connection, data.c_str(), data.length(), 0);
+
+    }
+
+    void handle_health_check(ServerTask task){
+        
+        HealthCheckResponse healthcheck_response;
+        healthcheck_response.req_id = task.req_id;
+        healthcheck_response.req_type = task.req_type;
+
+        healthcheck_response.queue_length = get_queue_length();
+        healthcheck_response.connection_throughput = connections_processed / (window_size_ms / 1000.0);
+        healthcheck_response.response_status = true;
+
+        string healthcheck_response_json = healthcheck_response.convert_to_json();
+        packet_send(task.internal_conn, healthcheck_response_json.c_str());
+
+        close(task.internal_conn);
+
+    }
 
     void worker_loop(int id){
 
@@ -147,23 +214,9 @@ class Scheduler{
             
             cout<<"Request picked from queue by worker "<< id;
 
-            // If request header is not read
-            if(task.req_id == ""){
-                char msg_buffer[1024] = {0};
-                auto bytesRead = read(task.internal_conn, msg_buffer, sizeof(msg_buffer));
+            
 
-                cout<<"Message buffer: "<<msg_buffer<<endl;
-
-                task.convert_from_json(msg_buffer);
-                
-                
-                cout<<"Request header read from client"<<endl;
-                
-
-            }
-
-            task.display();
-
+            
             ServerTask processed_task = server_worker.process_req(task);
 
             if (processed_task.task_status == "pending"){
@@ -175,10 +228,25 @@ class Scheduler{
 
             }
 
+            if(processed_task.task_status == "error"){
+                cerr << "Error processing request"<<endl;
+                continue;
+            }
+
             task.internal_completion_time = get_current_timestamp();
 
             metrics_file<< get_current_timestamp() <<","<<task.req_id<<","<<task.req_type<<","<<task.file_path<<","<<task.internal_arrival_time<<","<<task.internal_service_start_time<<","<<task.internal_completion_time<<endl;
 
+
+            mutex_throughput.lock();
+            
+            if(get_current_timestamp() - throughput_window_start_time >= window_size_ms){
+                throughput_window_start_time = get_current_timestamp();
+                connections_processed = 0;
+            }
+            connections_processed += 1;
+
+            mutex_throughput.unlock();
 
             /* if(processed_task.req_type=="write"){
                 mutex_file_lines.lock();
@@ -245,6 +313,10 @@ class FCFSScheduler : public Scheduler{
 
         ServerTask task(0, "");
         return task;
+    }
+
+    int get_queue_length() override{
+        return fcfs_queue.size();
     }
 
     
@@ -340,6 +412,10 @@ class SJFScheduler : public Scheduler{
 
     }
 
+    int get_queue_length() override{
+        return sjf_pq.size();
+    }
+
     
 };
 
@@ -378,6 +454,10 @@ class RRScheduler : public Scheduler{
 
         ServerTask task(0, "");
         return task;
+    }
+
+    int get_queue_length() override{
+        return fcfs_queue.size();
     }
 
     
