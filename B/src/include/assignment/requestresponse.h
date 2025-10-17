@@ -88,6 +88,7 @@ class HealthCheckResponse{
     string req_type = "";
     int queue_length = 0;
     float connection_throughput = 0;
+    float average_time_spent_on_server = 0;
     bool response_status = false;
 
     string convert_to_json(){
@@ -100,6 +101,7 @@ class HealthCheckResponse{
         doc.AddMember("queue_length", Value(queue_length), allocator);
         doc.AddMember("response_status", Value(response_status), allocator);
         doc.AddMember("connection_throughput", Value(connection_throughput), allocator);
+        doc.AddMember("average_time_spent_on_server", Value(average_time_spent_on_server), allocator);
 
         StringBuffer buffer;
         Writer<StringBuffer> writer(buffer);
@@ -120,7 +122,8 @@ class HealthCheckResponse{
         if(doc.HasMember("queue_length")) queue_length = doc["queue_length"].GetInt();
         if(doc.HasMember("response_status")) response_status = doc["response_status"].GetBool();
         if(doc.HasMember("connection_throughput")) connection_throughput = doc["connection_throughput"].GetFloat();
-        
+        if(doc.HasMember("average_time_spent_on_server")) average_time_spent_on_server = doc["average_time_spent_on_server"].GetFloat();
+
         return true;
     }
 
@@ -129,6 +132,8 @@ class HealthCheckResponse{
         cout<<"Request Type: "<<req_type<<endl;
         cout<<"Queue Length: "<<queue_length<<endl;
         cout<<"Response Status: "<<response_status<<endl;
+        cout<<"Connection Throughput: "<<connection_throughput<<endl;
+        cout<<"Average Time Spent on Server: "<<average_time_spent_on_server<<endl;
     }
 
 

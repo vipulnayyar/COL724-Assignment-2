@@ -37,13 +37,91 @@ class LBScheduler{
 
     vector<thread> healthcheck_threads;
 
-    // Adaptive Weighted Round Robin
+    // Adaptive Weighted Round Robin (1-10)
     int server_weight[4] = {1, 1, 1, 1};
 
     // Adaptive Least Connections
     atomic<int> server_connections[4] = {0, 0, 0, 0};
 
-    int healthcheck_response_time_score[4] = {0, 0, 0, 0};
+    mutex mutex_average_time_spent_on_server;
+
+    float average_time_spent_on_server[4] = {0, 0, 0, 0};
+
+
+    int get_bucket_index(float value, float min_value, float max_value){
+
+        cout<<"Value: "<<value<<", Min Value: "<<min_value<<", Max Value: "<<max_value<<endl;
+
+        int BUCKET_COUNT = 10;
+        float diff = max_value - min_value;
+        float diff_bucket = diff / BUCKET_COUNT;
+
+        if(diff_bucket == 0)
+            return 1;
+
+        int bucket_index = ((value - min_value) / diff_bucket) + 1;
+
+        if(bucket_index > BUCKET_COUNT){
+            bucket_index = BUCKET_COUNT;
+        }
+
+        return (BUCKET_COUNT + 1 - bucket_index);
+    }
+
+
+    void rebalance_wrr_weights(){
+
+
+        mutex_average_time_spent_on_server.lock();
+        float min_average_time_spent_on_server = average_time_spent_on_server[0];
+        int min_average_time_spent_on_server_index = 0;
+
+        for(int i = 1; i < 4; i++){
+            if(average_time_spent_on_server[i] < min_average_time_spent_on_server){
+                min_average_time_spent_on_server = average_time_spent_on_server[i];
+                min_average_time_spent_on_server_index = i;
+            }
+        }
+
+        float max_average_time_spent_on_server = average_time_spent_on_server[0];
+        int max_average_time_spent_on_server_index = 0;
+
+        for(int i = 1; i < 4; i++){
+            if(average_time_spent_on_server[i] > max_average_time_spent_on_server){
+                max_average_time_spent_on_server = average_time_spent_on_server[i];
+                max_average_time_spent_on_server_index = i;
+            }
+        }
+
+
+        
+        for(int i = 0; i < 4; i++){
+            int bucket_index = get_bucket_index(average_time_spent_on_server[i], min_average_time_spent_on_server, max_average_time_spent_on_server);
+
+            server_weight[i] = 0.9* server_weight[i] + 0.1* bucket_index;
+
+
+            cout<<"Server "<<i+1<<" weight: "<<server_weight[i]<<endl;
+        }
+
+        mutex_average_time_spent_on_server.unlock();
+        
+
+
+
+       
+        
+    }
+
+
+
+    void rebalance_backends(){
+        if(sched_policy == "wrr"){
+            rebalance_wrr_weights();
+        }else if(sched_policy == "lc"){
+            //rebalance_lc_weights();
+        }
+    }
 
 
     long long get_current_timestamp(){
@@ -217,6 +295,18 @@ class LBScheduler{
             }
         }
 
+        int max_connections = server_connections[0];
+        int max_connections_index = 0;
+
+        for(int i = 1; i < 4; i++){
+            if(server_connections[i] > max_connections){
+                max_connections = server_connections[i];
+                max_connections_index = i;
+            }
+        }
+
+        
+
         return min_connections_index;
 
         /* if (min_connections_index == 0){
@@ -307,7 +397,6 @@ class LBScheduler{
 
             cout<<"New connection from client accepted"<<endl;
 
-            // Scheduling
             
             
 
@@ -336,21 +425,13 @@ class LBScheduler{
                     break;
                 }
 
-                
+                // Rebalancing WRR weights
+                rebalance_wrr_weights();
+
+
             }
-            
-            // start thread to handle connection traffic
-            connection_threads.emplace_back(&LBScheduler::handle_connection_traffic, this, upstream_server_id, "upward", downstream_connection, upstream_socket);
-
-
-
-            connection_threads.emplace_back(&LBScheduler::handle_connection_traffic, this, upstream_server_id, "downward", upstream_socket, downstream_connection);
-
-    
         }
-
     }
-
 
     int set_nonblocking(int fd) {
         int flags = fcntl(fd, F_GETFL, 0);
@@ -375,6 +456,14 @@ class LBScheduler{
            
             if(upstream_server_socket < 0){
                 cerr << "Connection Failed"<<endl;
+
+                mutex_average_time_spent_on_server.lock();
+                average_time_spent_on_server[upstream_server_id] = 999999.0;
+                mutex_average_time_spent_on_server.unlock();
+
+
+                healthcheck_metrics_file<< get_current_timestamp() <<","<< upstream_server_id + 1 <<"," << server_ip[upstream_server_id]<<"," << server_port[upstream_server_id] <<"," <<false<<","<< 0 <<","<< 0 <<","<< 0 << "," << 0 << endl;
+
                 continue;
             }
 
@@ -409,7 +498,12 @@ class LBScheduler{
             HealthCheckResponse healthcheck_response;
             healthcheck_response.convert_from_json(buffer);
             //cout<<"Healthcheck response received from server "<<server_ip << " at port "<< server_port <<endl;
-            cout<<healthcheck_response.convert_to_json()<<endl;
+            //cout<<healthcheck_response.convert_to_json()<<endl;
+
+
+            mutex_average_time_spent_on_server.lock();
+            average_time_spent_on_server[upstream_server_id] = healthcheck_response.average_time_spent_on_server;
+            mutex_average_time_spent_on_server.unlock();
 
             if(healthcheck_response.response_status == false){
                 cerr << "Healthcheck Failed"<<endl;
@@ -418,7 +512,8 @@ class LBScheduler{
 
             long long response_time_ms = received_timestamp - sent_timestamp;
 
-            healthcheck_metrics_file<< get_current_timestamp() <<","<< upstream_server_id + 1 <<"," << server_ip[upstream_server_id]<<"," << server_port[upstream_server_id] <<"," <<healthcheck_response.response_status<<","<< response_time_ms <<","<< healthcheck_response.queue_length <<","<< healthcheck_response.connection_throughput << endl;
+            healthcheck_metrics_file<< get_current_timestamp() <<","<< upstream_server_id + 1 <<"," << server_ip[upstream_server_id]<<"," << server_port[upstream_server_id] <<"," <<healthcheck_response.response_status<<","<< response_time_ms <<","<< healthcheck_response.queue_length <<","<< healthcheck_response.connection_throughput << "," << healthcheck_response.average_time_spent_on_server << endl;
+
 
             close(upstream_server_socket);
 

@@ -32,11 +32,14 @@ class Scheduler{
     int SEND_PACKET_SIZE = 1024;
 
 
-    mutex mutex_throughput;
+    mutex mutex_performance;
     long long connections_processed = 0;
-    long long window_size_ms = 1000;
-    long long throughput_window_start_time = 0;
+    float time_spent_on_server = 0;
+    long long window_start_time = 0;
 
+
+    long long window_size_ms = 5000;
+    
     
     int packet_size;
     bool exiting = false;
@@ -106,6 +109,10 @@ class Scheduler{
 
         cout<<"Listen status = "<<listen_status <<endl;
 
+
+        window_start_time = get_current_timestamp();
+        connections_processed = 0;
+
         for(int i = 0; i < worker_thread_count; ++i)
             worker_threads.emplace_back(&Scheduler::worker_loop, this, i);
         
@@ -162,15 +169,19 @@ class Scheduler{
         }
     }
 
-    void packet_send(int connection, string data){
-
-        
+    bool packet_send(int connection, string data){
         if(data.length() < SEND_PACKET_SIZE){
             int padding = SEND_PACKET_SIZE - data.length();
             data += string(padding, '\0');
         }
+        
         cout<<"\nSending packet to client : "<<data<<endl;
-        send(connection, data.c_str(), data.length(), 0);
+        int sent = send(connection, data.c_str(), data.length(), 0);
+        if(sent < 0){
+            cerr << "Error sending data: " << strerror(errno) << endl;
+            return false;
+        }
+        return true;
 
     }
 
@@ -181,11 +192,33 @@ class Scheduler{
         healthcheck_response.req_type = task.req_type;
 
         healthcheck_response.queue_length = get_queue_length();
-        healthcheck_response.connection_throughput = connections_processed / (window_size_ms / 1000.0);
+
+        mutex_performance.lock();
+        if(get_current_timestamp() - window_start_time >= window_size_ms){
+            connections_processed = 0;
+            time_spent_on_server = 0;
+            window_start_time = get_current_timestamp();
+        }
+        
+        // Avoid division by zero
+        if(connections_processed > 0) {
+            healthcheck_response.connection_throughput = (float)connections_processed / ((float)window_size_ms / 1000.0);
+            healthcheck_response.average_time_spent_on_server = ((float)time_spent_on_server / (float)connections_processed);
+        } else {
+            healthcheck_response.connection_throughput = 0.0;
+            healthcheck_response.average_time_spent_on_server = 0.0;
+        }
+
+        mutex_performance.unlock();
+
         healthcheck_response.response_status = true;
 
+        cout<<"Healthcheck response: "<<healthcheck_response.convert_to_json()<<endl;
+
         string healthcheck_response_json = healthcheck_response.convert_to_json();
-        packet_send(task.internal_conn, healthcheck_response_json.c_str());
+        if(!packet_send(task.internal_conn, healthcheck_response_json)) {
+            cerr << "Failed to send complete healthcheck response" << endl;
+        }
 
         close(task.internal_conn);
 
@@ -238,15 +271,19 @@ class Scheduler{
             metrics_file<< get_current_timestamp() <<","<<task.req_id<<","<<task.req_type<<","<<task.file_path<<","<<task.internal_arrival_time<<","<<task.internal_service_start_time<<","<<task.internal_completion_time<<endl;
 
 
-            mutex_throughput.lock();
+            mutex_performance.lock();
             
-            if(get_current_timestamp() - throughput_window_start_time >= window_size_ms){
-                throughput_window_start_time = get_current_timestamp();
-                connections_processed = 0;
-            }
-            connections_processed += 1;
+            if(get_current_timestamp() - window_start_time >= window_size_ms){
 
-            mutex_throughput.unlock();
+                time_spent_on_server = 0;
+                connections_processed = 0;
+                window_start_time = get_current_timestamp();
+            }
+
+            connections_processed += 1;
+            time_spent_on_server += (float)(task.internal_completion_time - task.internal_arrival_time);
+
+            mutex_performance.unlock();
 
             /* if(processed_task.req_type=="write"){
                 mutex_file_lines.lock();
