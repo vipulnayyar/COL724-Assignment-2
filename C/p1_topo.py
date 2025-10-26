@@ -33,7 +33,7 @@ def run():
     """Create the network, start it, and enter the CLI."""
     topo = CustomTopo()
     net = Mininet(topo=topo, switch=OVSSwitch, build=False)
-    net.addController('c0', controller=RemoteController, ip="127.0.0.1", protocol='tcp', port=7000)
+    net.addController('c0', controller=RemoteController, ip="127.0.0.1", protocol='tcp', port=6633)
     net.build()
     net.start()
     info('*** Running CLI\n')
@@ -47,4 +47,3 @@ if __name__ == '__main__':
     # Set log level to display Mininet output
     setLogLevel('info')
     run()
-

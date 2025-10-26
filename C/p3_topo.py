@@ -2,6 +2,7 @@
 
 from mininet.net import Mininet
 from mininet.node import RemoteController, OVSKernelSwitch
+from mininet.log import setLogLevel, info
 from mininet.link import TCLink
 from mininet.topo import Topo
 from mininet.cli import CLI
@@ -43,7 +44,7 @@ def run():
     net.start()
 
     # After the network is started, connect to the remote controller
-    controller = net.addController('c0', controller=RemoteController, ip='127.0.0.1', port=7000)
+    controller = net.addController('c0', controller=RemoteController, ip='127.0.0.1', port=6653)
 
     # Reconnect all switches to the remote controller
     for switch in net.switches:
@@ -56,4 +57,6 @@ def run():
     net.stop()
 
 if __name__ == '__main__':
+    # Set log level to display Mininet output
+    setLogLevel('info')
     run()
