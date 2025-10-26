@@ -28,11 +28,54 @@ class SPRController(app_manager.RyuApp):
 
 
     def log_topology_to_file(self):
-        with open('topology.txt', 'w') as f:
-            f.write(str(self.nw_graph.nodes(data=True)))
-            f.write("\n\n\n")
-            f.write(str(self.nw_graph.edges(data=True)))
 
+        with open('topology.txt', 'w') as f:
+
+            f.write("Hosts:\n")
+            # Read all hosts from nw_graph and write to file
+            hosts = sorted([node for node in self.nw_graph.nodes() if self.nw_graph.nodes[node]['type'] == 'host'])
+            for host in hosts:
+                f.write("Host " + str(host) + "\n")
+
+            f.write("Switches:\n")
+            # Read all switches from nw_graph and write to file
+            switches = [node for node in self.nw_graph.nodes() if self.nw_graph.nodes[node]['type'] == 'switch']
+            for switch in switches:
+                f.write("Switch " + str(switch) + "\n")
+
+            f.write("Links:\n")
+            # Read all links from nw_graph and write to file
+            links = [edge for edge in self.nw_graph.edges()]
+            for link in links:
+                f.write(str(self.nw_graph.edges[link]['desc']) + " : " + str(link) + "  Delay: " + str(self.nw_graph.edges[link]['delay']) + " Bw: " + str(self.nw_graph.edges[link]['bw']) + " Weight: " + str(self.nw_graph.edges[link]['weight']) + "\n")
+
+
+            # Log shortest paths between each host pair
+            for i in range(len(hosts)):
+                for j in range(i+1, len(hosts)):
+                    src = hosts[i]
+                    dst = hosts[j]
+                    
+                    shortest_path = networkx.shortest_path(self.nw_graph, src, dst, weight='weight')
+                    f.write("\n****************************************\n")
+                    f.write("Shortest path from Host interface " + str(src) + " to Host interface " + str(dst) + ":\n\n")
+
+                    for node in shortest_path:
+                        f.write(" -> ")
+                        
+                        if node in hosts:
+                            f.write("(Host Interface)" + str(node))
+                        else:
+                            if node in switches:
+                                f.write("(Switch)" + str(node))
+                            else:
+                                f.write("(Switch Interface)" + str(node))
+
+                        
+                    f.write("\n")
+
+
+            
     def _display_graph(self):
         print("Network graph: ", self.nw_graph.nodes(data=True))
         print("Network graph edges: ", self.nw_graph.edges(data=True))
@@ -53,7 +96,7 @@ class SPRController(app_manager.RyuApp):
 
 
     def _get_bw(self, interface):
-        cmd = "tc class show dev " + interface + " | grep rate | awk '{print $10}'"
+        cmd = "tc class show dev " + interface + " | grep rate | awk '{print $12}'"
         result = subprocess.check_output(cmd, shell=True)
         return float(result.strip()[:-4])
 
@@ -150,7 +193,7 @@ class SPRController(app_manager.RyuApp):
 
         if msg['mac'] not in self.nw_graph.nodes():
             self.nw_graph.add_node(msg['mac'], type='host')
-            self.nw_graph.add_edge(msg['mac'], msg['port']['hw_addr'], type='host-to-switch-port', weight=1)
+            self.nw_graph.add_edge(msg['mac'], msg['port']['hw_addr'], type='host-to-switch-port', weight=0, delay=0, bw=0, desc = "Link from host to switch " + str(int(msg['port']['dpid'])))
 
         self._display_graph()
 
@@ -163,9 +206,9 @@ class SPRController(app_manager.RyuApp):
         self.nw_graph.add_node(int(msg['dpid']), type='switch')
 
         for port in msg['ports']:
-            self.nw_graph.add_node(port['hw_addr'], type='switch-port', port_id = port['port_no'])
+            self.nw_graph.add_node(port['hw_addr'], type='switch-port', port_id = port['port_no'], switch_id = int(msg['dpid']))
 
-            self.nw_graph.add_edge(int(msg['dpid']), port['hw_addr'], type='switch-to-switch-port', weight=1)
+            self.nw_graph.add_edge(int(msg['dpid']), port['hw_addr'], type='switch-to-switch-port', weight=0, delay=0, bw=0, desc = "Link from switch " + str(int(msg['dpid'])) + " to its own port " + str(int(port['port_no'])))
 
 
     @set_ev_cls(event.EventSwitchLeave)
@@ -179,16 +222,18 @@ class SPRController(app_manager.RyuApp):
         msg = ev.link.to_dict()
         print("Link added: ", msg)
 
-        # TODO : Get Link bw and delay to calculate weight
+        # Get Link bw and delay to calculate weight
 
 
-        delay = self._get_delay(msg['src']['name'])
-        bw = self._get_bw(msg['src']['name'])
+        delay = float(self._get_delay(msg['src']['name']))/1000
+        bw = float(self._get_bw(msg['src']['name']))
 
-        weight = delay * bw
+        # RTT = delay * 2 
+        bandwidth_delay_product = float( 2 * delay * bw)
 
-        self.nw_graph.add_edge(msg['src']['hw_addr'], msg['dst']['hw_addr'], type='switch-port-to-switch-port', weight=weight)
+        weight = float(1 / bandwidth_delay_product)
 
+        self.nw_graph.add_edge(msg['src']['hw_addr'], msg['dst']['hw_addr'], type='switch-port-to-switch-port', weight=weight, delay=delay, bw=bw, desc = "Link from switch " + str(int(msg['src']['dpid'])) + " to switch " + str(int(msg['dst']['dpid'])))
 
 
 

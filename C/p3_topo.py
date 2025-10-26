@@ -16,10 +16,10 @@ class CustomTopo(Topo):
         s4 = self.addSwitch('s4', protocols='OpenFlow13')
 
         # Create four hosts, one for each switch
-        h1 = self.addHost('h1')
-        h2 = self.addHost('h2')
-        h3 = self.addHost('h3')
-        h4 = self.addHost('h4')
+        h1 = self.addHost('h1', mac='00:00:00:00:00:01')
+        h2 = self.addHost('h2', mac='00:00:00:00:00:02')
+        h3 = self.addHost('h3', mac='00:00:00:00:00:03')
+        h4 = self.addHost('h4', mac='00:00:00:00:00:04')
 
         # Add links between hosts and their respective switches
         self.addLink(h1, s1)
@@ -28,10 +28,10 @@ class CustomTopo(Topo):
         self.addLink(h4, s4)
 
         # Add links between switches in a cycle with 20 Mbps bandwidth
-        self.addLink(s1, s2, bw=2, delay='20ms',cls=TCLink)
-        self.addLink(s2, s3, bw=2, delay='10ms', cls=TCLink)
-        self.addLink(s3, s4, bw=1, delay='20ms', cls=TCLink)
-        self.addLink(s4, s1, bw=1, delay='15ms', cls=TCLink)
+        self.addLink(s1, s2, bw=10, delay='10ms',cls=TCLink)
+        self.addLink(s2, s3, bw=10, delay='10ms', cls=TCLink)
+        self.addLink(s3, s4, bw=10, delay='10ms', cls=TCLink)
+        self.addLink(s4, s1, bw=1, delay='10ms', cls=TCLink)
 
 def run():
     # Initialize the network with the custom topology
